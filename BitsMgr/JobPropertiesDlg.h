@@ -26,6 +26,7 @@ private:
 	LRESULT OnCloseCmd(WORD /*wNotifyCode*/, WORD id, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CListViewCtrl m_List;
+	CComboBox m_Priority;
 	IBackgroundCopyJob* m_pJob;
 };
 

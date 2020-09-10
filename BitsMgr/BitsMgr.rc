@@ -146,11 +146,11 @@ CAPTION "About BITS Manager"
 FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,68,81,50,14
-    CTEXT           "BITS Manager v0.5\n\n(C)2020 Pavel Yosifovich",IDC_STATIC,36,30,102,32
+    CTEXT           "BITS Manager v0.6\n\n(C)2020 Pavel Yosifovich",IDC_STATIC,36,30,102,32
     ICON            IDR_MAINFRAME,IDC_STATIC,6,6,20,20
 END
 
-IDD_JOBPROPS DIALOGEX 0, 0, 357, 188
+IDD_JOBPROPS DIALOGEX 0, 0, 357, 224
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Job Properties"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -161,10 +161,16 @@ BEGIN
     EDITTEXT        IDC_DESC,60,30,282,30,ES_MULTILINE | ES_AUTOHSCROLL | ES_WANTRETURN
     LTEXT           "GUID:",IDC_STATIC,6,67,20,8
     EDITTEXT        IDC_GUID,60,66,192,14,ES_AUTOHSCROLL | ES_READONLY
-    LTEXT           "Files:",IDC_STATIC,6,84,18,8
-    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,96,342,60
-    DEFPUSHBUTTON   "OK",IDOK,116,165,59,16
-    PUSHBUTTON      "Cancel",IDCANCEL,191,167,50,14
+    LTEXT           "Files:",IDC_STATIC,6,121,18,8
+    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,133,342,60
+    DEFPUSHBUTTON   "OK",IDOK,111,202,59,16
+    DEFPUSHBUTTON   "Cancel",IDCANCEL,186,202,59,16
+    LTEXT           "Priority:",IDC_STATIC,6,90,26,8
+    COMBOBOX        IDC_PRIORITY,60,88,114,68,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "State:",IDC_STATIC,186,90,21,8
+    CTEXT           "Static",IDC_STATE,218,89,76,12,SS_SUNKEN
+    LTEXT           "Progress:",IDC_STATIC,6,108,32,8
+    LTEXT           "Static",IDC_PROGRESS,60,108,114,12,0,WS_EX_STATICEDGE
 END
 
 
@@ -189,7 +195,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 350
         TOPMARGIN, 7
-        BOTTOMMARGIN, 181
+        BOTTOMMARGIN, 217
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -247,7 +253,7 @@ BEGIN
             VALUE "LegalCopyright", "(C)2020 Pavel Yosifovich"
             VALUE "OriginalFilename", "BitsMgr.exe"
             VALUE "ProductName", "BITS Manager"
-            VALUE "ProductVersion", "0,5,0,0"
+            VALUE "ProductVersion", "0,6,0,0"
         END
     END
     BLOCK "VarFileInfo"
@@ -275,12 +281,31 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// Dialog Info
+//
+
+IDD_JOBPROPS DLGINIT
+BEGIN
+    IDC_PRIORITY, 0x403, 15, 0
+0x6f46, 0x6572, 0x7267, 0x756f, 0x646e, 0x2820, 0x2930, "\000" 
+    IDC_PRIORITY, 0x403, 9, 0
+0x6948, 0x6867, 0x2820, 0x2931, "\000" 
+    IDC_PRIORITY, 0x403, 11, 0
+0x6f4e, 0x6d72, 0x6c61, 0x2820, 0x2932, "\000" 
+    IDC_PRIORITY, 0x403, 9, 0
+0x4c20, 0x776f, 0x2820, 0x2933, "\000" 
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // String Table
 //
 
 STRINGTABLE
 BEGIN
-    IDR_MAINFRAME           "BITS Manager v0.5 (C)2020 Pavel Yosifovich"
+    IDR_MAINFRAME           "BITS Manager v0.6 (C)2020 Pavel Yosifovich"
     IDS_TITLE               "BITS Manager"
 END
 

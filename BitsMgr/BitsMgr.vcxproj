@@ -217,6 +217,7 @@
     <ClCompile Include="AboutDlg.cpp" />
     <ClCompile Include="BitsMgr.cpp" />
     <ClCompile Include="ColumnManager.cpp" />
+    <ClCompile Include="DialogHelper.cpp" />
     <ClCompile Include="JobPropertiesDlg.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="pch.cpp">
@@ -232,6 +233,7 @@
   <ItemGroup>
     <ClInclude Include="AboutDlg.h" />
     <ClInclude Include="ColumnManager.h" />
+    <ClInclude Include="DialogHelper.h" />
     <ClInclude Include="IMainFrame.h" />
     <ClInclude Include="JobPropertiesDlg.h" />
     <ClInclude Include="MainFrm.h" />

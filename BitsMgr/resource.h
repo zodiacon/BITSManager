@@ -23,9 +23,12 @@
 #define IDD_JOBPROPS                    217
 #define IDC_DISPLAYNAME                 1000
 #define IDC_DESC                        1001
-#define IDC_CHANGE_DESC                 1003
 #define IDC_GUID                        1004
 #define IDC_FILES                       1005
+#define IDC_PRIORITY                    1007
+#define IDC_STATE                       1008
+#define IDC_STATE2                      1009
+#define IDC_PROGRESS                    1009
 #define ID_VIEW_REFRESH32775            32775
 #define ID_JOB_CANCEL                   32776
 #define ID_JOB_PAUSE                    32777
@@ -38,9 +41,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        219
+#define _APS_NEXT_RESOURCE_VALUE        220
 #define _APS_NEXT_COMMAND_VALUE         32782
-#define _APS_NEXT_CONTROL_VALUE         1007
+#define _APS_NEXT_CONTROL_VALUE         1009
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

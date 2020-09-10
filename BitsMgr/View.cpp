@@ -40,8 +40,9 @@ CString CView::GetColumnText(HWND, int row, int col) const {
 			if (time.dwHighDateTime == 0 && time.dwLowDateTime == 0)
 				return L"";
 			return CTime(time).Format(L"%x %X");
-		case 8: text.Format(L"%d", item->FileCount); break;
+		case 8: text.Format(L"%u / %u", item->Progress.FilesTransferred, item->Progress.FilesTotal); break;
 		case 9: return JobPriorityToString(item->Priority);
+		case 10: return JobProgressToString(item->Progress);
 	}
 
 	return text;
@@ -72,8 +73,14 @@ void CView::DoSort(const SortInfo* si) {
 			case 5: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.CreationTime, *(LONGLONG*)&j2->Times.CreationTime, si->SortAscending);
 			case 6: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.ModificationTime, *(LONGLONG*)&j2->Times.ModificationTime, si->SortAscending);
 			case 7: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.TransferCompletionTime, *(LONGLONG*)&j2->Times.TransferCompletionTime, si->SortAscending);
-			case 8: return SortHelper::SortNumbers(j1->FileCount, j2->FileCount, si->SortAscending);
+			case 8: return SortHelper::SortNumbers(j1->Progress.FilesTotal, j2->Progress.FilesTotal, si->SortAscending);
 			case 9: return SortHelper::SortNumbers(j1->Priority, j2->Priority, si->SortAscending);
+			case 10: 
+				auto& progress1 = j1->Progress;
+				auto& progress2 = j2->Progress;
+				if (progress1.BytesTotal == 0 || progress2.BytesTotal == 0)
+					return false;
+				return SortHelper::SortNumbers(progress1.BytesTransferred * 100 / progress1.BytesTotal, progress2.BytesTransferred * 100 / progress2.BytesTotal, si->SortAscending);
 		}
 		return false;
 	};
@@ -94,6 +101,9 @@ bool CView::OnRightClickList(int row, int col, POINT& pt) {
 }
 
 bool CView::OnDoubleClickList(int row, int col, POINT& pt) {
+	if (row < 0)
+		return false;
+
 	ShowProperties(row);
 	return true;
 }
@@ -131,6 +141,14 @@ PCWSTR CView::JobPriorityToString(BG_JOB_PRIORITY priority) {
 		case BG_JOB_PRIORITY_FOREGROUND: return L"Foreground (0)";
 	}
 	return L"";
+}
+
+CString CView::JobProgressToString(const BG_JOB_PROGRESS& progress) {
+	CString text;
+	if(progress.FilesTotal > 0 && progress.BytesTotal != (UINT64)-1)
+		text.Format(L"%u %% (%llu / %llu)", 
+			progress.BytesTransferred * 100 / progress.BytesTotal, progress.BytesTransferred, progress.BytesTotal);
+	return text;
 }
 
 void CView::UpdateUI() {
@@ -219,14 +237,9 @@ bool CView::UpdateBitsJob(JobInfo* info) {
 	}
 	ATLVERIFY(SUCCEEDED(pJob->GetState(&info->State)));
 
-	CComPtr<IEnumBackgroundCopyFiles> spFiles;
-	pJob->EnumFiles(&spFiles);
-	if (spFiles) {
-		spFiles->GetCount(&info->FileCount);
-	}
-
 	pJob->GetTimes(&info->Times);
 	pJob->GetPriority(&info->Priority);
+	pJob->GetProgress(&info->Progress);
 
 	return true;
 }
@@ -249,6 +262,7 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	cm->AddColumn(L"Completed", LVCFMT_LEFT, 120);
 	cm->AddColumn(L"Files", LVCFMT_RIGHT, 50);
 	cm->AddColumn(L"Priority", LVCFMT_LEFT, 110);
+	cm->AddColumn(L"Progress", LVCFMT_LEFT, 130);
 
 	cm->UpdateColumns();
 

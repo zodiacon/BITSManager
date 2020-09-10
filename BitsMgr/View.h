@@ -41,6 +41,7 @@ public:
 	static PCWSTR JobTypeToString(BG_JOB_TYPE type);
 	static PCWSTR JobStateToString(BG_JOB_STATE state);
 	static PCWSTR JobPriorityToString(BG_JOB_PRIORITY priority);
+	static CString JobProgressToString(const BG_JOB_PROGRESS& progress);
 
 	BEGIN_MSG_MAP(CView)
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
@@ -67,11 +68,11 @@ private:
 		CString DisplayName;
 		CString Description;
 		CString Owner;
-		ULONG FileCount;
 		BG_JOB_STATE State;
 		BG_JOB_TYPE Type;
 		BG_JOB_TIMES Times;
 		BG_JOB_PRIORITY Priority;
+		BG_JOB_PROGRESS Progress;
 		CComPtr<IBackgroundCopyJob> spJob;
 	};
 
