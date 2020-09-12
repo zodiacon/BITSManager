@@ -22,6 +22,25 @@ void CJobPropertiesDlg::InitJob() {
     ::StringFromGUID2(id, text, _countof(text));
     SetDlgItemText(IDC_GUID, text);
 
+    CComQIPtr<IBackgroundCopyJob2> spJob2(m_pJob);
+    if (spJob2) {
+        PWSTR program, params;
+        if (SUCCEEDED(spJob2->GetNotifyCmdLine(&program, &params))) {
+            if (program) {
+                SetDlgItemText(IDC_PROGRAM, program);
+                ::CoTaskMemFree(program);
+            }
+            if (params) {
+                SetDlgItemText(IDC_PARAMS, CString(params).Trim());
+                ::CoTaskMemFree(params);
+            }
+        }
+    }
+    else {
+        GetDlgItem(IDC_PARAMS).EnableWindow(FALSE);
+        GetDlgItem(IDC_PROGRAM).EnableWindow(FALSE);
+    }
+
     BG_JOB_STATE state;
     m_pJob->GetState(&state);
     SetDlgItemText(IDC_STATE, CView::JobStateToString(state));
@@ -88,8 +107,23 @@ LRESULT CJobPropertiesDlg::OnCloseCmd(WORD, WORD id, HWND, BOOL&) {
         GetDlgItemText(IDC_DESC, text);
         m_pJob->SetDescription(text);
         m_pJob->SetPriority((BG_JOB_PRIORITY)m_Priority.GetItemData(m_Priority.GetCurSel()));
-
+        CComQIPtr<IBackgroundCopyJob2> spJob2(m_pJob);
+        if (spJob2) {
+            GetDlgItemText(IDC_PROGRAM, text);
+            CString params;
+            GetDlgItemText(IDC_PARAMS, params);
+            spJob2->SetNotifyCmdLine(text, L" " + params);
+        }
     }
     EndDialog(id);
+    return 0;
+}
+
+LRESULT CJobPropertiesDlg::OnBrowse(WORD, WORD id, HWND, BOOL&) {
+    CSimpleFileDialog dlg(TRUE, L"exe", nullptr, OFN_EXPLORER | OFN_ENABLESIZING,
+        L"Executable Files (*.exe)\0*.exe\0", *this);
+    if (dlg.DoModal() == IDOK) {
+        SetDlgItemText(IDC_PROGRAM, dlg.m_szFileName);
+    }
     return 0;
 }

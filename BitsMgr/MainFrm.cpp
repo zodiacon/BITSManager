@@ -101,6 +101,14 @@ LRESULT CMainFrame::OnAppAbout(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCt
 	return 0;
 }
 
+LRESULT CMainFrame::OnAlwaysOnTop(WORD, WORD id, HWND, BOOL&) {
+	bool onTop = GetExStyle() & WS_EX_TOPMOST;
+	SetWindowPos(onTop ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+	UISetCheck(id, !onTop);
+
+	return 0;
+}
+
 void CMainFrame::InitCommandBar() {
 	struct {
 		UINT id, icon;
@@ -109,10 +117,11 @@ void CMainFrame::InitCommandBar() {
 		{ ID_JOB_CANCEL, IDI_CANCEL },
 		{ ID_JOB_PAUSE, IDI_SUSPENDED },
 		{ ID_JOB_RESUME, IDI_PLAY },
-		{ ID_JOB_FILES, IDI_FILE },
+		{ ID_JOB_PROPERTIES, IDI_FILE },
 		{ ID_FILE_SAVE_AS, IDI_SAVE_AS },
-		{ ID_VIEW_REFRESH, IDI_REFRESH },
 		{ ID_APP_ABOUT, IDI_ABOUT },
+		{ ID_EDIT_COPY, IDI_COPY },
+		{ ID_OPTIONS_ALWAYSONTOP, IDI_PIN },
 	};
 	for (auto& cmd : cmds) {
 		m_CmdBar.AddIcon(cmd.icon ? AtlLoadIconImage(cmd.icon, 0, 16, 16) : cmd.hIcon, cmd.id);

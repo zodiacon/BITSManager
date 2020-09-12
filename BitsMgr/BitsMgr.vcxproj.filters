@@ -48,6 +48,9 @@
     <ClCompile Include="DialogHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ClipboardHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MainFrm.h">
@@ -81,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DialogHelper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ClipboardHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -133,6 +139,12 @@
       <Filter>Resource Files\Icons</Filter>
     </Image>
     <Image Include="res\upload.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\copy.ico">
+      <Filter>Resource Files\Icons</Filter>
+    </Image>
+    <Image Include="res\pin_green.ico">
       <Filter>Resource Files\Icons</Filter>
     </Image>
   </ItemGroup>

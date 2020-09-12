@@ -74,9 +74,13 @@ BEGIN
         MENUITEM "&Pause",                      ID_JOB_PAUSE
         MENUITEM "&Resume",                     ID_JOB_RESUME
         MENUITEM SEPARATOR
-        MENUITEM "&Properties...",              ID_JOB_FILES
+        MENUITEM "&Properties...",              ID_JOB_PROPERTIES
         MENUITEM SEPARATOR
         MENUITEM "&Delete Completed Jobs",      ID_JOB_DELETECOMPLETEDJOBS
+    END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "&Always On Top",              ID_OPTIONS_ALWAYSONTOP
     END
     POPUP "&Help"
     BEGIN
@@ -92,7 +96,7 @@ BEGIN
         MENUITEM "&Pause",                      ID_JOB_PAUSE
         MENUITEM "&Resume",                     ID_JOB_RESUME
         MENUITEM SEPARATOR
-        MENUITEM "&Properties...",              ID_JOB_FILES
+        MENUITEM "&Properties...",              ID_JOB_PROPERTIES
     END
 END
 
@@ -134,6 +138,10 @@ IDI_NEW_GEAR            ICON                    "res\\gear_new.ico"
 
 IDI_SAVE_AS             ICON                    "res\\save_as.ico"
 
+IDI_COPY                ICON                    "res\\copy.ico"
+
+IDI_PIN                 ICON                    "res\\pin_green.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -150,7 +158,7 @@ BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,6,6,20,20
 END
 
-IDD_JOBPROPS DIALOGEX 0, 0, 357, 224
+IDD_JOBPROPS DIALOGEX 0, 0, 357, 296
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Job Properties"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -161,16 +169,21 @@ BEGIN
     EDITTEXT        IDC_DESC,60,30,282,30,ES_MULTILINE | ES_AUTOHSCROLL | ES_WANTRETURN
     LTEXT           "GUID:",IDC_STATIC,6,67,20,8
     EDITTEXT        IDC_GUID,60,66,192,14,ES_AUTOHSCROLL | ES_READONLY
-    LTEXT           "Files:",IDC_STATIC,6,121,18,8
-    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,133,342,60
-    DEFPUSHBUTTON   "OK",IDOK,111,202,59,16
-    DEFPUSHBUTTON   "Cancel",IDCANCEL,186,202,59,16
     LTEXT           "Priority:",IDC_STATIC,6,90,26,8
     COMBOBOX        IDC_PRIORITY,60,88,114,68,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "State:",IDC_STATIC,186,90,21,8
     CTEXT           "Static",IDC_STATE,218,89,76,12,SS_SUNKEN
     LTEXT           "Progress:",IDC_STATIC,6,108,32,8
     LTEXT           "Static",IDC_PROGRESS,60,108,114,12,0,WS_EX_STATICEDGE
+    GROUPBOX        "Notify Command Line",IDC_STATIC,6,126,336,60
+    LTEXT           "Program:",IDC_STATIC,17,142,30,8
+    EDITTEXT        IDC_PROGRAM,60,139,240,14,ES_AUTOHSCROLL
+    LTEXT           "Parameters:",IDC_STATIC,17,164,40,8
+    EDITTEXT        IDC_PARAMS,60,160,270,14,ES_AUTOHSCROLL
+    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,192,342,60
+    DEFPUSHBUTTON   "OK",IDOK,111,274,59,16
+    DEFPUSHBUTTON   "Cancel",IDCANCEL,186,274,59,16
+    PUSHBUTTON      "...",IDC_BROWSE,306,139,24,14
 END
 
 
@@ -195,7 +208,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 350
         TOPMARGIN, 7
-        BOTTOMMARGIN, 217
+        BOTTOMMARGIN, 289
     END
 END
 #endif    // APSTUDIO_INVOKED

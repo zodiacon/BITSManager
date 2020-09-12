@@ -53,7 +53,8 @@ public:
 		COMMAND_ID_HANDLER(ID_JOB_CANCEL, OnCancelJob)
 		COMMAND_ID_HANDLER(ID_JOB_PAUSE, OnSuspendJob)
 		COMMAND_ID_HANDLER(ID_JOB_RESUME, OnResumeJob)
-		COMMAND_ID_HANDLER(ID_JOB_FILES, OnJobProps)
+		COMMAND_ID_HANDLER(ID_JOB_PROPERTIES, OnJobProps)
+		COMMAND_ID_HANDLER(ID_EDIT_COPY, OnEditCopy)
 	END_MSG_MAP()
 
 	// Handler prototypes (uncomment arguments if needed):
@@ -90,6 +91,7 @@ private:
 	LRESULT OnResumeJob(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnJobProps(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnEditCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CComPtr<IBackgroundCopyManager> m_spMgr;
 	std::vector<std::shared_ptr<JobInfo>> m_Jobs;

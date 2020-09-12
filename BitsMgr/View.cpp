@@ -10,6 +10,7 @@
 #include "SecurityHelper.h"
 #include "SortHelper.h"
 #include "JobPropertiesDlg.h"
+#include "ClipboardHelper.h"
 
 CView::CView(IMainFrame* frame) : m_pFrame(frame) {
 }
@@ -153,10 +154,14 @@ CString CView::JobProgressToString(const BG_JOB_PROGRESS& progress) {
 
 void CView::UpdateUI() {
 	auto count = GetSelectedCount();
+	JobInfo* info{ nullptr };
+	if (count > 0) {
+		info = m_Jobs[GetNextItem(-1, LVIS_SELECTED)].get();
+	}
 	m_pUI->UIEnable(ID_JOB_CANCEL, count > 0);
-	m_pUI->UIEnable(ID_JOB_PAUSE, count > 0);
-	m_pUI->UIEnable(ID_JOB_RESUME, count > 0);
-	m_pUI->UIEnable(ID_JOB_FILES, count == 1);
+	m_pUI->UIEnable(ID_JOB_PAUSE, count > 0 && info->State == BG_JOB_STATE_TRANSFERRING);
+	m_pUI->UIEnable(ID_JOB_RESUME, count > 0 && info->State == BG_JOB_STATE_SUSPENDED);
+	m_pUI->UIEnable(ID_JOB_PROPERTIES, count == 1);
 }
 
 void CView::ShowProperties(int index) {
@@ -351,6 +356,26 @@ LRESULT CView::OnJobProps(WORD, WORD, HWND, BOOL&) {
 	ATLASSERT(GetSelectedCount() == 1);
 	auto selected = GetNextItem(-1, LVIS_SELECTED);
 	ShowProperties(selected);
+
+	return 0;
+}
+
+LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) {
+	auto count = GetSelectedCount();
+	CString text;
+	if (count == 0 || count == GetItemCount()) {
+		for (int i = 0; i < GetItemCount(); i++)
+			text += GetLineText(*this, i);
+	}
+	else {
+		for(int i = -1;;) {
+			i = GetNextItem(i, LVIS_SELECTED);
+			if (i < 0)
+				break;
+			text += GetLineText(*this, i);
+		}
+	}
+	ClipboardHelper::CopyText(*this, text);
 
 	return 0;
 }
