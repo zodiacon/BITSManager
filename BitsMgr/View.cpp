@@ -11,6 +11,7 @@
 #include "SortHelper.h"
 #include "JobPropertiesDlg.h"
 #include "ClipboardHelper.h"
+#include "ListViewHelper.h"
 
 CView::CView(IMainFrame* frame) : m_pFrame(frame) {
 }
@@ -365,14 +366,14 @@ LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) {
 	CString text;
 	if (count == 0 || count == GetItemCount()) {
 		for (int i = 0; i < GetItemCount(); i++)
-			text += GetLineText(*this, i);
+			text += ListViewHelper::GetLineText(*this, i);
 	}
 	else {
 		for(int i = -1;;) {
 			i = GetNextItem(i, LVIS_SELECTED);
 			if (i < 0)
 				break;
-			text += GetLineText(*this, i);
+			text += ListViewHelper::GetLineText(*this, i);
 		}
 	}
 	ClipboardHelper::CopyText(*this, text);

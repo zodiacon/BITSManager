@@ -220,6 +220,7 @@
     <ClCompile Include="ColumnManager.cpp" />
     <ClCompile Include="DialogHelper.cpp" />
     <ClCompile Include="JobPropertiesDlg.cpp" />
+    <ClCompile Include="ListViewHelper.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -238,6 +239,7 @@
     <ClInclude Include="DialogHelper.h" />
     <ClInclude Include="IMainFrame.h" />
     <ClInclude Include="JobPropertiesDlg.h" />
+    <ClInclude Include="ListViewHelper.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="pch.h" />

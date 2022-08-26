@@ -2,6 +2,8 @@
 #include "JobPropertiesDlg.h"
 #include "DialogHelper.h"
 #include "View.h"
+#include "ListViewHelper.h"
+#include "ClipboardHelper.h"
 
 CJobPropertiesDlg::CJobPropertiesDlg(IBackgroundCopyJob* pJob) : m_pJob(pJob) {
 }
@@ -76,6 +78,7 @@ void CJobPropertiesDlg::InitJob() {
 }
 
 LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
+    InitDynamicLayout();
     DialogHelper::AdjustOKCancelButtons(this);
     DialogHelper::SetDialogIcon(this, IDI_FILE);
 
@@ -127,5 +130,34 @@ LRESULT CJobPropertiesDlg::OnBrowse(WORD, WORD id, HWND, BOOL&) {
     if (dlg.DoModal() == IDOK) {
         SetDlgItemText(IDC_PROGRAM, dlg.m_szFileName);
     }
+    return 0;
+}
+
+LRESULT CJobPropertiesDlg::OnRightClick(int, LPNMHDR hdr, BOOL&) {
+    auto lv = (NMITEMACTIVATE*)hdr;
+    if (lv->iItem >= 0) {
+        CMenu menu;
+        menu.LoadMenuW(IDR_CONTEXT);
+        POINT pt;
+        ::GetCursorPos(&pt);
+        auto cmd = (UINT)menu.GetSubMenu(1).TrackPopupMenu(0, pt.x, pt.y, m_hWnd);
+        if (cmd) {
+            LRESULT result;
+            return ProcessWindowMessage(m_hWnd, WM_COMMAND, cmd, 0, result, 1);
+        }
+    }
+    return 0;
+}
+
+LRESULT CJobPropertiesDlg::OnEditCopy(WORD, WORD, HWND, BOOL&) {
+    CString text;
+    for (int i = -1;;) {
+        i = m_List.GetNextItem(i, LVIS_SELECTED);
+        if (i < 0)
+            break;
+        text += ListViewHelper::GetLineText(m_List, i);
+    }
+    ClipboardHelper::CopyText(m_hWnd, text);
+
     return 0;
 }

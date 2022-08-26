@@ -66,18 +66,6 @@ struct CVirtualListView {
 		return true;
 	}
 
-	CString GetLineText(HWND hListView, int row, PCWSTR separator = L",") {
-		auto columns = GetColumnManager(hListView)->GetCount();
-		CListViewCtrl lv(hListView);
-		CString text, item;
-		for (int i = 0; i < columns; i++) {
-			lv.GetItemText(row, i, item);
-			text += item + separator;
-		}
-		text.SetAt(text.GetLength() - 1, L'\n');
-		return text;
-	}
-
 protected:
 	void UpdateList(CListViewCtrl& lv, int count, bool full = false) {
 		lv.SetItemCountEx(count, full ? 0 : (LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL));
