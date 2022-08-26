@@ -80,8 +80,10 @@ LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
     DialogHelper::SetDialogIcon(this, IDI_FILE);
 
     m_List.Attach(GetDlgItem(IDC_FILES));
+    m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER);
+
     m_List.InsertColumn(0, L"Remote URL", LVCFMT_LEFT, 250);
-    m_List.InsertColumn(1, L"Local Path", LVCFMT_LEFT, 250);
+    m_List.InsertColumn(1, L"Local Path", LVCFMT_LEFT, 200);
     m_List.InsertColumn(2, L"Progress", LVCFMT_CENTER, 100);
 
     BG_JOB_PROGRESS progress;

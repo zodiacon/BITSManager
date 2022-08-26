@@ -148,13 +148,13 @@ IDI_PIN                 ICON                    "res\\pin_green.ico"
 // Dialog
 //
 
-IDD_ABOUTBOX DIALOGEX 0, 0, 187, 102
+IDD_ABOUTBOX DIALOGEX 0, 0, 181, 75
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About BITS Manager"
 FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,68,81,50,14
-    CTEXT           "BITS Manager v0.6\n\n(C)2020 Pavel Yosifovich",IDC_STATIC,36,30,102,32
+    DEFPUSHBUTTON   "OK",IDOK,73,54,35,14
+    CTEXT           "BITS Manager v0.65\n\n©2020-2022 Pavel Yosifovich",IDC_STATIC,36,10,102,32
     ICON            IDR_MAINFRAME,IDC_STATIC,6,6,20,20
 END
 
@@ -198,9 +198,9 @@ BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 180
+        RIGHTMARGIN, 174
         TOPMARGIN, 7
-        BOTTOMMARGIN, 95
+        BOTTOMMARGIN, 68
     END
 
     IDD_JOBPROPS, DIALOG
@@ -244,8 +244,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,1
- PRODUCTVERSION 1,0,0,1
+ FILEVERSION 0,6,5,0
+ PRODUCTVERSION 0,6,5,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -260,13 +260,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "BITS Manager Application"
-            VALUE "FileVersion", "1, 0, 0, 1"
+            VALUE "FileDescription", "BITS Manager"
+            VALUE "FileVersion", "0.6.5.0"
             VALUE "InternalName", "BitsMgr"
-            VALUE "LegalCopyright", "(C)2020 Pavel Yosifovich"
+            VALUE "LegalCopyright", "©2020-2022 Pavel Yosifovich"
             VALUE "OriginalFilename", "BitsMgr.exe"
             VALUE "ProductName", "BITS Manager"
-            VALUE "ProductVersion", "0,6,0,0"
+            VALUE "ProductVersion", "0.6.5.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -318,7 +318,7 @@ END
 
 STRINGTABLE
 BEGIN
-    IDR_MAINFRAME           "BITS Manager v0.6 (C)2020 Pavel Yosifovich"
+    IDR_MAINFRAME           "BITS Manager v0.65"
     IDS_TITLE               "BITS Manager"
 END
 

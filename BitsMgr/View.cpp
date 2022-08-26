@@ -158,7 +158,7 @@ void CView::UpdateUI() {
 	if (count > 0) {
 		info = m_Jobs[GetNextItem(-1, LVIS_SELECTED)].get();
 	}
-	m_pUI->UIEnable(ID_JOB_CANCEL, count > 0);
+	m_pUI->UIEnable(ID_JOB_CANCEL, count > 1 || (count == 1 && info->State != BG_JOB_STATE_TRANSFERRED && info->State != BG_JOB_STATE_CANCELLED));
 	m_pUI->UIEnable(ID_JOB_PAUSE, count > 0 && info->State == BG_JOB_STATE_TRANSFERRING);
 	m_pUI->UIEnable(ID_JOB_RESUME, count > 0 && info->State == BG_JOB_STATE_SUSPENDED);
 	m_pUI->UIEnable(ID_JOB_PROPERTIES, count == 1);

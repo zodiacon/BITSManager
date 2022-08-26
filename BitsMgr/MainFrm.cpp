@@ -122,6 +122,7 @@ void CMainFrame::InitCommandBar() {
 		{ ID_APP_ABOUT, IDI_ABOUT },
 		{ ID_EDIT_COPY, IDI_COPY },
 		{ ID_OPTIONS_ALWAYSONTOP, IDI_PIN },
+		{ ID_VIEW_REFRESH, IDI_REFRESH },
 	};
 	for (auto& cmd : cmds) {
 		m_CmdBar.AddIcon(cmd.icon ? AtlLoadIconImage(cmd.icon, 0, 16, 16) : cmd.hIcon, cmd.id);

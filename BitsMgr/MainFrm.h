@@ -31,8 +31,8 @@ public:
 		COMMAND_ID_HANDLER(ID_OPTIONS_ALWAYSONTOP, OnAlwaysOnTop)
 		CHAIN_MSG_MAP(CAutoUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
-		CHAIN_MSG_MAP_ALT_MEMBER(m_view, 1)
 		REFLECT_NOTIFICATIONS()
+		CHAIN_MSG_MAP_ALT_MEMBER(m_view, 1)
 	END_MSG_MAP()
 
 // Handler prototypes (uncomment arguments if needed):
