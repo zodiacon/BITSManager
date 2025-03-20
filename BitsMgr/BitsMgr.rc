@@ -101,6 +101,7 @@ BEGIN
     POPUP "edit"
     BEGIN
         MENUITEM "&Copy",                       ID_EDIT_COPY
+        MENUITEM "Copy URL",                    ID_EDIT_COPYURL
     END
 END
 

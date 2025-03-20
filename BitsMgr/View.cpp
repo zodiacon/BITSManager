@@ -13,9 +13,6 @@
 #include "ClipboardHelper.h"
 #include "ListViewHelper.h"
 
-CView::CView(IMainFrame* frame) : m_pFrame(frame) {
-}
-
 void CView::SetUpdateUI(CUpdateUIBase* ui) {
 	m_pUI = ui;
 }
@@ -98,7 +95,7 @@ bool CView::OnRightClickList(HWND, int row, int col, POINT& pt) {
 	auto& item = m_Jobs[row];
 	CMenu menu;
 	menu.LoadMenu(IDR_CONTEXT);
-	m_pFrame->TrackPopupMenu(menu.GetSubMenu(0));
+	Frame()->TrackPopupMenu(menu.GetSubMenu(0));
 
 	return true;
 }
@@ -155,15 +152,16 @@ CString CView::JobProgressToString(const BG_JOB_PROGRESS& progress) {
 }
 
 void CView::UpdateUI() {
-	auto count = GetSelectedCount();
+	auto count = m_List.GetSelectedCount();
 	JobInfo* info{ nullptr };
 	if (count > 0) {
-		info = m_Jobs[GetNextItem(-1, LVIS_SELECTED)].get();
+		info = m_Jobs[m_List.GetNextItem(-1, LVIS_SELECTED)].get();
 	}
 	m_pUI->UIEnable(ID_JOB_CANCEL, count > 1 || (count == 1 && info->State != BG_JOB_STATE_TRANSFERRED && info->State != BG_JOB_STATE_CANCELLED));
 	m_pUI->UIEnable(ID_JOB_PAUSE, count > 0 && info->State == BG_JOB_STATE_TRANSFERRING);
 	m_pUI->UIEnable(ID_JOB_RESUME, count > 0 && info->State == BG_JOB_STATE_SUSPENDED);
 	m_pUI->UIEnable(ID_JOB_PROPERTIES, count == 1);
+	m_pUI->UIEnable(ID_EDIT_COPYURL, count == 1);
 }
 
 void CView::ShowProperties(int index) {
@@ -192,7 +190,7 @@ void CView::Refresh() {
 				}
 			}
 		}
-		SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
+		m_List.SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
 	}
 }
 
@@ -252,13 +250,14 @@ bool CView::UpdateBitsJob(JobInfo* info) {
 }
 
 LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
-	DefWindowProc();
-	SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+	SetStatic();
+	m_hWndClient = m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | LVS_REPORT | LVS_OWNERDATA);
+	m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	auto hr = m_spMgr.CoCreateInstance(__uuidof(BackgroundCopyManager));
 	if (FAILED(hr))
 		return -1;
 
-	auto cm = GetColumnManager(*this);
+	auto cm = GetColumnManager(m_List);
 	cm->AddColumn(L"Display Name", LVCFMT_LEFT, 350);
 	cm->AddColumn(L"GUID", LVCFMT_LEFT, 260, ColumnFlags::Numeric | ColumnFlags::Const);
 	cm->AddColumn(L"Owner", LVCFMT_LEFT, 200);
@@ -271,8 +270,6 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	cm->AddColumn(L"Priority", LVCFMT_LEFT, 110);
 	cm->AddColumn(L"Progress", LVCFMT_LEFT, 130);
 
-	cm->UpdateColumns();
-
 	CImageList images;
 	images.Create(16, 16, ILC_COLOR32, 8, 4);
 	UINT icons[] = {
@@ -281,7 +278,7 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	};
 	for (auto icon : icons)
 		images.AddIcon(AtlLoadIconImage(icon, 0, 16, 16));
-	SetImageList(images, LVSIL_SMALL);
+	m_List.SetImageList(images, LVSIL_SMALL);
 
 	Refresh();
 
@@ -299,13 +296,13 @@ LRESULT CView::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
 
 LRESULT CView::OnRefresh(WORD, WORD, HWND, BOOL&) {
 	Refresh();
-	RedrawItems(GetTopIndex(), GetTopIndex() + GetCountPerPage());
+	m_List.RedrawItems(m_List.GetTopIndex(), m_List.GetTopIndex() + m_List.GetCountPerPage());
 
 	return 0;
 }
 
 LRESULT CView::OnCancelJob(WORD, WORD, HWND, BOOL&) {
-	auto count = GetSelectedCount();
+	auto count = m_List.GetSelectedCount();
 	if (count) {
 		CString text;
 		text.Format(L"Cancel %d job(s)?", count);
@@ -313,7 +310,7 @@ LRESULT CView::OnCancelJob(WORD, WORD, HWND, BOOL&) {
 			return 0;
 
 		int i = -1;
-		while ((i = GetNextItem(i, LVIS_SELECTED)) >= 0) {
+		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
 			auto& item = m_Jobs[i];
 			item->spJob->Cancel();
 		}
@@ -323,10 +320,10 @@ LRESULT CView::OnCancelJob(WORD, WORD, HWND, BOOL&) {
 }
 
 LRESULT CView::OnSuspendJob(WORD, WORD, HWND, BOOL&) {
-	auto count = GetSelectedCount();
+	auto count = m_List.GetSelectedCount();
 	if (count) {
 		int i = -1;
-		while ((i = GetNextItem(i, LVIS_SELECTED)) >= 0) {
+		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
 			auto& item = m_Jobs[i];
 			item->spJob->Suspend();
 		}
@@ -336,10 +333,10 @@ LRESULT CView::OnSuspendJob(WORD, WORD, HWND, BOOL&) {
 }
 
 LRESULT CView::OnResumeJob(WORD, WORD, HWND, BOOL&) {
-	auto count = GetSelectedCount();
+	auto count = m_List.GetSelectedCount();
 	if (count) {
 		int i = -1;
-		while ((i = GetNextItem(i, LVIS_SELECTED)) >= 0) {
+		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
 			auto& item = m_Jobs[i];
 			item->spJob->Resume();
 		}
@@ -355,29 +352,30 @@ LRESULT CView::OnItemChanged(int, LPNMHDR, BOOL&) {
 }
 
 LRESULT CView::OnJobProps(WORD, WORD, HWND, BOOL&) {
-	ATLASSERT(GetSelectedCount() == 1);
-	auto selected = GetNextItem(-1, LVIS_SELECTED);
+	ATLASSERT(m_List.GetSelectedCount() == 1);
+	auto selected = m_List.GetNextItem(-1, LVIS_SELECTED);
 	ShowProperties(selected);
 
 	return 0;
 }
 
 LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) {
-	auto count = GetSelectedCount();
+	auto count = m_List.GetSelectedCount();
 	CString text;
-	if (count == 0 || count == GetItemCount()) {
-		for (int i = 0; i < GetItemCount(); i++)
-			text += ListViewHelper::GetRowAsString(*this, i);
+	if (count == 0 || count == m_List.GetItemCount()) {
+		for (int i = 0; i < m_List.GetItemCount(); i++)
+			text += ListViewHelper::GetRowAsString(m_List, i);
 	}
 	else {
 		for(int i = -1;;) {
-			i = GetNextItem(i, LVIS_SELECTED);
+			i = m_List.GetNextItem(i, LVIS_SELECTED);
 			if (i < 0)
 				break;
-			text += ListViewHelper::GetRowAsString(*this, i);
+			text += ListViewHelper::GetRowAsString(m_List, i);
 		}
 	}
 	ClipboardHelper::CopyText(*this, text);
 
 	return 0;
 }
+

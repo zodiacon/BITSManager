@@ -19,7 +19,9 @@ public:
 		COMMAND_ID_HANDLER(IDOK, OnCloseCmd)
 		COMMAND_ID_HANDLER(IDCANCEL, OnCloseCmd)
 		COMMAND_ID_HANDLER(IDC_BROWSE, OnBrowse)
+		COMMAND_ID_HANDLER(ID_EDIT_COPYURL, OnEditCopyURL)
 		CHAIN_MSG_MAP(CDynamicDialogLayout<CJobPropertiesDlg>)
+	ALT_MSG_MAP(1)
 	END_MSG_MAP()
 
 	// Handler prototypes (uncomment arguments if needed):
@@ -35,6 +37,7 @@ private:
 	LRESULT OnBrowse(WORD /*wNotifyCode*/, WORD id, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnRightClick(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnEditCopy(WORD /*wNotifyCode*/, WORD id, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnEditCopyURL(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CListViewCtrl m_List;
 	CComboBox m_Priority;

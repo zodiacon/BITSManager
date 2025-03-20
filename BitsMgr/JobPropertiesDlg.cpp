@@ -161,3 +161,15 @@ LRESULT CJobPropertiesDlg::OnEditCopy(WORD, WORD, HWND, BOOL&) {
 
     return 0;
 }
+
+LRESULT CJobPropertiesDlg::OnEditCopyURL(WORD, WORD, HWND, BOOL&) {
+    auto count = m_List.GetSelectedCount();
+    if (count != 1)
+        return 0;
+
+    CString text;
+    m_List.GetItemText(m_List.GetSelectedIndex(), 0, text);
+    ClipboardHelper::CopyText(m_hWnd, text);
+
+    return 0;
+}

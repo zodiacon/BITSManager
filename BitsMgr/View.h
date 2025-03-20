@@ -6,6 +6,7 @@
 
 #include <VirtualListView.h>
 #include "IMainFrame.h"
+#include <FrameView.h>
 
 struct Guid : GUID {
 	bool operator==(Guid const& other) const {
@@ -21,12 +22,12 @@ struct std::hash<Guid> {
 };
 
 class CView : 
-	public CWindowImpl<CView, CListViewCtrl>,
+	public CFrameView<CView, IMainFrame>,
 	public CVirtualListView<CView> {
 public:
 	DECLARE_WND_SUPERCLASS(NULL, CListViewCtrl::GetWndClassName())
 
-	CView(IMainFrame* frame);
+	using CFrameView::CFrameView;
 
 	void SetUpdateUI(CUpdateUIBase* ui);
 	BOOL PreTranslateMessage(MSG* pMsg);
@@ -46,8 +47,9 @@ public:
 	BEGIN_MSG_MAP(CView)
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
-		REFLECTED_NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnItemChanged)
-		CHAIN_MSG_MAP_ALT(CVirtualListView<CView>, 1)
+		NOTIFY_CODE_HANDLER(LVN_ITEMCHANGED, OnItemChanged)
+		CHAIN_MSG_MAP(CVirtualListView<CView>)
+		CHAIN_MSG_MAP(BaseFrame)
 	ALT_MSG_MAP(1)
 		COMMAND_ID_HANDLER(ID_VIEW_REFRESH, OnRefresh)
 		COMMAND_ID_HANDLER(ID_JOB_CANCEL, OnCancelJob)
@@ -98,4 +100,5 @@ private:
 	std::unordered_map<Guid, std::shared_ptr<JobInfo>> m_JobsMap;
 	CUpdateUIBase* m_pUI{ nullptr };
 	IMainFrame* m_pFrame;
+	CListViewCtrl m_List;
 };
