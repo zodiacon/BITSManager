@@ -7,10 +7,12 @@
 #include "resource.h"
 #include "View.h"
 #include "IMainFrame.h"
+#include <OwnerDrawnMenu.h>
 
 class CMainFrame : 
 	public CFrameWindowImpl<CMainFrame>, 
 	public CAutoUpdateUI<CMainFrame>,
+	public COwnerDrawnMenu<CMainFrame>,
 	public IMainFrame,
 	public CMessageFilter, 
 	public CIdleHandler {
@@ -30,6 +32,7 @@ public:
 		COMMAND_ID_HANDLER(ID_APP_ABOUT, OnAppAbout)
 		COMMAND_ID_HANDLER(ID_OPTIONS_ALWAYSONTOP, OnAlwaysOnTop)
 		CHAIN_MSG_MAP(CAutoUpdateUI<CMainFrame>)
+		CHAIN_MSG_MAP(COwnerDrawnMenu<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
 		REFLECT_NOTIFICATIONS()
 		CHAIN_MSG_MAP_ALT_MEMBER(m_view, 1)
@@ -54,5 +57,4 @@ private:
 	LRESULT OnAlwaysOnTop(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	CView m_view;
-	CCommandBarCtrl m_CmdBar;
 };

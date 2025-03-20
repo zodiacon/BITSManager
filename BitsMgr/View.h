@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "VirtualListView.h"
+#include <VirtualListView.h>
 #include "IMainFrame.h"
 
 struct Guid : GUID {
@@ -32,11 +32,11 @@ public:
 	BOOL PreTranslateMessage(MSG* pMsg);
 
 	CString GetColumnText(HWND, int row, int col) const;
-	int GetRowImage(int row) const;
+	int GetRowImage(HWND, int row, int) const;
 
-	void DoSort(const SortInfo* si);
-	bool OnRightClickList(int row, int col, POINT& pt);
-	bool OnDoubleClickList(int row, int col, POINT& pt);
+	void Sort(const SortInfo* si);
+	bool OnRightClickList(HWND, int row, int col, POINT& pt);
+	bool OnDoubleClickList(HWND, int row, int col, POINT& pt);
 
 	static PCWSTR JobTypeToString(BG_JOB_TYPE type);
 	static PCWSTR JobStateToString(BG_JOB_STATE state);

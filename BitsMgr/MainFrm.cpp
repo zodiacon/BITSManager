@@ -27,20 +27,17 @@ BOOL CMainFrame::OnIdle() {
 }
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
-	HWND hWndCmdBar = m_CmdBar.Create(m_hWnd, rcDefault, nullptr, ATL_SIMPLE_CMDBAR_PANE_STYLE);
 	CMenuHandle hMenu = GetMenu();
+	AddMenu(hMenu);
 	UIAddMenu(hMenu);
-	m_CmdBar.AttachMenu(hMenu);
-	m_CmdBar.m_bAlphaImages = true;
-	SetMenu(nullptr);
 	InitCommandBar();
+	SetCheckIcon(IDI_OK);
 
 	CToolBarCtrl tb;
 	auto hWndToolBar = tb.Create(m_hWnd, nullptr, nullptr, ATL_SIMPLE_TOOLBAR_PANE_STYLE, 0, ATL_IDW_TOOLBAR);
 	InitToolBar(tb);
 
 	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
-	AddSimpleReBarBand(hWndCmdBar);
 	AddSimpleReBarBand(hWndToolBar, nullptr, TRUE);
 	UIAddToolBar(hWndToolBar);
 
@@ -54,7 +51,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	UISetCheck(ID_VIEW_STATUS_BAR, 1);
 
 	// register object for message filtering and idle updates
-	CMessageLoop* pLoop = _Module.GetMessageLoop();
+	auto pLoop = _Module.GetMessageLoop();
 	ATLASSERT(pLoop != NULL);
 	pLoop->AddMessageFilter(this);
 	pLoop->AddIdleHandler(this);
@@ -68,7 +65,7 @@ BOOL CMainFrame::TrackPopupMenu(HMENU hMenu, DWORD flags, const POINT* pt) {
 		pt = &pt2;
 		::GetCursorPos(&pt2);
 	}
-	return m_CmdBar.TrackPopupMenu(hMenu, flags, pt->x, pt->y);
+	return ShowContextMenu(hMenu, flags, pt->x, pt->y);
 }
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
@@ -125,7 +122,7 @@ void CMainFrame::InitCommandBar() {
 		{ ID_VIEW_REFRESH, IDI_REFRESH },
 	};
 	for (auto& cmd : cmds) {
-		m_CmdBar.AddIcon(cmd.icon ? AtlLoadIconImage(cmd.icon, 0, 16, 16) : cmd.hIcon, cmd.id);
+		AddCommand(cmd.id, cmd.icon);
 	}
 }
 

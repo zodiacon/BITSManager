@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "MainFrm.h"
+#include <ThemeHelper.h>
 
 CAppModule _Module;
 
@@ -30,10 +31,10 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 	ATLASSERT(SUCCEEDED(hRes));
 
 	AtlInitCommonControls(ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES);
-
 	hRes = _Module.Init(nullptr, hInstance);
 	ATLASSERT(SUCCEEDED(hRes));
 
+	ThemeHelper::Init();
 	int nRet = Run(lpstrCmdLine, nCmdShow);
 
 	_Module.Term();

@@ -50,13 +50,14 @@ CString CView::GetColumnText(HWND, int row, int col) const {
 	return text;
 }
 
-int CView::GetRowImage(int row) const {
+int CView::GetRowImage(HWND, int row, int) const {
 	auto& item = m_Jobs[row];
 	switch (item->State) {
 		case BG_JOB_STATE_TRANSFERRED: return 4;
 		case BG_JOB_STATE_ACKNOWLEDGED: return 5;
 		case BG_JOB_STATE_SUSPENDED: return 0;
 		case BG_JOB_STATE_ERROR: return 6;
+		case BG_JOB_STATE_TRANSIENT_ERROR: return 6;
 		case BG_JOB_STATE_CANCELLED: return 7;
 		case BG_JOB_STATE_TRANSFERRING: return item->Type == BG_JOB_TYPE_DOWNLOAD ? 2 : 3;
 	}
@@ -64,25 +65,25 @@ int CView::GetRowImage(int row) const {
 	return 1;
 }
 
-void CView::DoSort(const SortInfo* si) {
+void CView::Sort(const SortInfo* si) {
 	auto compare = [&](auto& j1, auto& j2) -> bool {
 		switch (si->SortColumn) {
-			case 0: return SortHelper::SortStrings(j1->DisplayName, j2->DisplayName, si->SortAscending);
-			case 1: return SortHelper::SortStrings(j1->StringId, j2->StringId, si->SortAscending);
-			case 2: return SortHelper::SortStrings(j1->Owner, j2->Owner, si->SortAscending);
-			case 3: return SortHelper::SortNumbers(j1->Type, j2->Type, si->SortAscending);
-			case 4: return SortHelper::SortNumbers(j1->State, j2->State, si->SortAscending);
-			case 5: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.CreationTime, *(LONGLONG*)&j2->Times.CreationTime, si->SortAscending);
-			case 6: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.ModificationTime, *(LONGLONG*)&j2->Times.ModificationTime, si->SortAscending);
-			case 7: return SortHelper::SortNumbers(*(LONGLONG*)&j1->Times.TransferCompletionTime, *(LONGLONG*)&j2->Times.TransferCompletionTime, si->SortAscending);
-			case 8: return SortHelper::SortNumbers(j1->Progress.FilesTotal, j2->Progress.FilesTotal, si->SortAscending);
-			case 9: return SortHelper::SortNumbers(j1->Priority, j2->Priority, si->SortAscending);
+			case 0: return SortHelper::Sort(j1->DisplayName, j2->DisplayName, si->SortAscending);
+			case 1: return SortHelper::Sort(j1->StringId, j2->StringId, si->SortAscending);
+			case 2: return SortHelper::Sort(j1->Owner, j2->Owner, si->SortAscending);
+			case 3: return SortHelper::Sort(j1->Type, j2->Type, si->SortAscending);
+			case 4: return SortHelper::Sort(j1->State, j2->State, si->SortAscending);
+			case 5: return SortHelper::Sort(*(LONGLONG*)&j1->Times.CreationTime, *(LONGLONG*)&j2->Times.CreationTime, si->SortAscending);
+			case 6: return SortHelper::Sort(*(LONGLONG*)&j1->Times.ModificationTime, *(LONGLONG*)&j2->Times.ModificationTime, si->SortAscending);
+			case 7: return SortHelper::Sort(*(LONGLONG*)&j1->Times.TransferCompletionTime, *(LONGLONG*)&j2->Times.TransferCompletionTime, si->SortAscending);
+			case 8: return SortHelper::Sort(j1->Progress.FilesTotal, j2->Progress.FilesTotal, si->SortAscending);
+			case 9: return SortHelper::Sort(j1->Priority, j2->Priority, si->SortAscending);
 			case 10: 
 				auto& progress1 = j1->Progress;
 				auto& progress2 = j2->Progress;
 				if (progress1.BytesTotal == 0 || progress2.BytesTotal == 0)
 					return false;
-				return SortHelper::SortNumbers(progress1.BytesTransferred * 100 / progress1.BytesTotal, progress2.BytesTransferred * 100 / progress2.BytesTotal, si->SortAscending);
+				return SortHelper::Sort(progress1.BytesTransferred * 100 / progress1.BytesTotal, progress2.BytesTransferred * 100 / progress2.BytesTotal, si->SortAscending);
 		}
 		return false;
 	};
@@ -90,7 +91,7 @@ void CView::DoSort(const SortInfo* si) {
 	std::sort(m_Jobs.begin(), m_Jobs.end(), compare);
 }
 
-bool CView::OnRightClickList(int row, int col, POINT& pt) {
+bool CView::OnRightClickList(HWND, int row, int col, POINT& pt) {
 	if (row < 0)
 		return 0;
 
@@ -102,7 +103,7 @@ bool CView::OnRightClickList(int row, int col, POINT& pt) {
 	return true;
 }
 
-bool CView::OnDoubleClickList(int row, int col, POINT& pt) {
+bool CView::OnDoubleClickList(HWND, int row, int col, POINT& pt) {
 	if (row < 0)
 		return false;
 
@@ -366,14 +367,14 @@ LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) {
 	CString text;
 	if (count == 0 || count == GetItemCount()) {
 		for (int i = 0; i < GetItemCount(); i++)
-			text += ListViewHelper::GetLineText(*this, i);
+			text += ListViewHelper::GetRowAsString(*this, i);
 	}
 	else {
 		for(int i = -1;;) {
 			i = GetNextItem(i, LVIS_SELECTED);
 			if (i < 0)
 				break;
-			text += ListViewHelper::GetLineText(*this, i);
+			text += ListViewHelper::GetRowAsString(*this, i);
 		}
 	}
 	ClipboardHelper::CopyText(*this, text);

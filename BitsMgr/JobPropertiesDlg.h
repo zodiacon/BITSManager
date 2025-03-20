@@ -1,9 +1,11 @@
 #pragma once
 
 #include "resource.h"
+#include <DialogHelper.h>
 
 class CJobPropertiesDlg : 
 	public CDialogImpl<CJobPropertiesDlg>,
+	public CDialogHelper<CJobPropertiesDlg>,
 	public CDynamicDialogLayout<CJobPropertiesDlg> {
 public:
 	enum { IDD = IDD_JOBPROPS };

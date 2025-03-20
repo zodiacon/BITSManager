@@ -79,8 +79,8 @@ void CJobPropertiesDlg::InitJob() {
 
 LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
     InitDynamicLayout();
-    DialogHelper::AdjustOKCancelButtons(this);
-    DialogHelper::SetDialogIcon(this, IDI_FILE);
+    AdjustOKCancelButtons();
+    SetDialogIcon(IDI_FILE);
 
     m_List.Attach(GetDlgItem(IDC_FILES));
     m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER);
@@ -155,7 +155,7 @@ LRESULT CJobPropertiesDlg::OnEditCopy(WORD, WORD, HWND, BOOL&) {
         i = m_List.GetNextItem(i, LVIS_SELECTED);
         if (i < 0)
             break;
-        text += ListViewHelper::GetLineText(m_List, i);
+        text += ListViewHelper::GetRowAsString(m_List, i);
     }
     ClipboardHelper::CopyText(m_hWnd, text);
 
