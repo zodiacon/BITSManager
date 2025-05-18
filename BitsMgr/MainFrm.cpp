@@ -30,6 +30,7 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	CMenuHandle hMenu = GetMenu();
 	AddMenu(hMenu);
 	UIAddMenu(hMenu);
+	AddMenu(IDR_CONTEXT);
 	InitCommandBar();
 	SetCheckIcon(IDI_OK);
 
@@ -70,7 +71,7 @@ BOOL CMainFrame::TrackPopupMenu(HMENU hMenu, DWORD flags, const POINT* pt) {
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
 	// unregister message filtering and idle updates
-	CMessageLoop* pLoop = _Module.GetMessageLoop();
+	auto pLoop = _Module.GetMessageLoop();
 	ATLASSERT(pLoop);
 	pLoop->RemoveMessageFilter(this);
 	pLoop->RemoveIdleHandler(this);
@@ -138,9 +139,12 @@ void CMainFrame::InitToolBar(CToolBarCtrl& tb, int size) {
 	} buttons[] = {
 		{ ID_VIEW_REFRESH, IDI_REFRESH },
 		{ 0 },
+		{ ID_EDIT_COPY, IDI_COPY },
+		{ 0 },
 		{ ID_JOB_CANCEL, IDI_CANCEL },
 		{ ID_JOB_PAUSE, IDI_SUSPENDED },
 		{ ID_JOB_RESUME, IDI_PLAY },
+		{ ID_JOB_PROPERTIES, IDI_FILE },
 	};
 	for (auto& b : buttons) {
 		if (b.id == 0)

@@ -34,7 +34,6 @@ public:
 		CHAIN_MSG_MAP(CAutoUpdateUI<CMainFrame>)
 		CHAIN_MSG_MAP(COwnerDrawnMenu<CMainFrame>)
 		CHAIN_MSG_MAP(CFrameWindowImpl<CMainFrame>)
-		REFLECT_NOTIFICATIONS()
 		CHAIN_MSG_MAP_ALT_MEMBER(m_view, 1)
 	END_MSG_MAP()
 

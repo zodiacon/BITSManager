@@ -359,7 +359,7 @@ LRESULT CView::OnJobProps(WORD, WORD, HWND, BOOL&) {
 	return 0;
 }
 
-LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) {
+LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) const {
 	auto count = m_List.GetSelectedCount();
 	CString text;
 	if (count == 0 || count == m_List.GetItemCount()) {
