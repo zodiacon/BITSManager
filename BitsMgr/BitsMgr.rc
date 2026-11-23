@@ -164,7 +164,7 @@ CAPTION "About BITS Manager"
 FONT 9, "Segoe UI", 0, 0, 0x0
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,68,48,44,14
-    CTEXT           "BITS Manager v0.65\n\n©2020-2025 Pavel Yosifovich",IDC_STATIC,36,10,102,32
+    CTEXT           "BITS Manager v1.0\n\n©2020-2026 Pavel Yosifovich",IDC_STATIC,36,10,102,32
     ICON            IDR_MAINFRAME,IDC_STATIC,6,6,20,20
 END
 
@@ -277,8 +277,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,6,5,0
- PRODUCTVERSION 0,6,5,0
+ FILEVERSION 1,0,0
+ PRODUCTVERSION 1,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -295,12 +295,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Scorpio Software"
             VALUE "FileDescription", "BITS Manager"
-            VALUE "FileVersion", "0.6.5.0"
+            VALUE "FileVersion", "1.0.0"
             VALUE "InternalName", "BitsMgr"
-            VALUE "LegalCopyright", "©2020-2025 Pavel Yosifovich"
+            VALUE "LegalCopyright", "©2020-2026 Pavel Yosifovich"
             VALUE "OriginalFilename", "BitsMgr.exe"
             VALUE "ProductName", "BITS Manager"
-            VALUE "ProductVersion", "0.6.5.0"
+            VALUE "ProductVersion", "1.0.0"
         END
     END
     BLOCK "VarFileInfo"
