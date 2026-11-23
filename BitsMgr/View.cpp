@@ -13,6 +13,8 @@
 #include "NewJobDlg.h"
 #include "ClipboardHelper.h"
 #include "ListViewHelper.h"
+#include "AppSettings.h"
+#include <DpiHelper.h>
 
 void CView::SetUpdateUI(CUpdateUIBase* ui) {
 	m_pUI = ui;
@@ -45,6 +47,7 @@ CString CView::GetColumnText(HWND, int row, int col) const {
 		case 8: text.Format(L"%u / %u", item->Progress.FilesTransferred, item->Progress.FilesTotal); break;
 		case 9: return JobPriorityToString(item->Priority);
 		case 10: return JobProgressToString(item->Progress);
+		case 11: return item->Error;
 	}
 
 	return text;
@@ -80,6 +83,7 @@ void CView::DoSort(const SortInfo* si) {
 			case 9: return SortHelper::Sort(j1->Priority, j2->Priority, si->SortAscending);
 			// unknown sizes sort as -1, keeping the ordering consistent for std::sort
 			case 10: return SortHelper::Sort(JobProgressPercent(j1->Progress), JobProgressPercent(j2->Progress), si->SortAscending);
+			case 11: return SortHelper::Sort(j1->Error, j2->Error, si->SortAscending);
 		}
 		return false;
 	};
@@ -302,6 +306,118 @@ void CView::Refresh() {
 		}
 	}
 	UpdateUI();
+	UpdateStatus();
+}
+
+void CView::UpdateStatus() {
+	int transferring = 0, suspended = 0, errors = 0;
+	for (auto& job : m_Jobs) {
+		switch (job->State) {
+			case BG_JOB_STATE_CONNECTING:
+			case BG_JOB_STATE_TRANSFERRING: transferring++; break;
+			case BG_JOB_STATE_SUSPENDED: suspended++; break;
+			case BG_JOB_STATE_ERROR:
+			case BG_JOB_STATE_TRANSIENT_ERROR: errors++; break;
+		}
+	}
+	CString text;
+	text.Format(L"%d jobs: %d transferring, %d suspended, %d errors", (int)m_Jobs.size(), transferring, suspended, errors);
+	Frame()->SetStatusText(IDS_PANE_JOBS, text);
+}
+
+namespace {
+	CString DescribeError(IBackgroundCopyError* pError) {
+		auto lang = LANGIDFROMLCID(::GetThreadLocale());
+		CString text;
+		PWSTR s = nullptr;
+		if (SUCCEEDED(pError->GetErrorDescription(lang, &s)) || SUCCEEDED(pError->GetErrorDescription(0, &s))) {
+			text = s;
+			::CoTaskMemFree(s);
+			text.Trim();
+		}
+		BG_ERROR_CONTEXT context;
+		HRESULT code;
+		if (SUCCEEDED(pError->GetError(&context, &code))) {
+			CString hex;
+			hex.Format(L" (0x%08X)", code);
+			text += hex;
+		}
+		if (SUCCEEDED(pError->GetErrorContextDescription(lang, &s)) || SUCCEEDED(pError->GetErrorContextDescription(0, &s))) {
+			CString contextText(s);
+			::CoTaskMemFree(s);
+			if (!contextText.Trim().IsEmpty())
+				text += L" " + contextText;
+		}
+		CComPtr<IBackgroundCopyFile> spFile;
+		if (SUCCEEDED(pError->GetFile(&spFile)) && spFile && SUCCEEDED(spFile->GetRemoteName(&s))) {
+			text += CString(L" File: ") + s;
+			::CoTaskMemFree(s);
+		}
+		// one line, for the list and copying
+		text.Replace(L"\r\n", L" ");
+		text.Replace(L'\n', L' ');
+		return text;
+	}
+}
+
+CString CView::GetJobError(IBackgroundCopyJob* pJob, HRESULT* code) {
+	CComPtr<IBackgroundCopyError> spError;
+	if (FAILED(pJob->GetError(&spError)) || !spError)
+		return L"";
+	if (code) {
+		BG_ERROR_CONTEXT context;
+		spError->GetError(&context, code);
+	}
+	return DescribeError(spError);
+}
+
+void CView::LoadLayout(AppSettings const& settings) {
+	auto layout = settings.GetBinaryIfSize<ListLayout>(AppSettings::JobListLayout);
+	auto header = m_List.GetHeader();
+	int count = header.GetItemCount();
+	if (layout == nullptr || layout->Count != count || count > ListLayout::MaxColumns)
+		return;
+
+	UINT dpi = DpiHelper::GetDpi(m_List);
+	for (int i = 0; i < count; i++) {
+		int width = layout->Widths[i];
+		if (layout->Dpi && layout->Dpi != dpi)
+			width = DpiHelper::Scale(width, dpi, layout->Dpi);
+		m_List.SetColumnWidth(i, width);
+	}
+	m_List.SetColumnOrderArray(count, const_cast<int*>(layout->Order));
+
+	// sorting goes through the header click, which also sets the header's arrow
+	if (layout->SortColumn >= 0 && layout->SortColumn < count) {
+		NMLISTVIEW nm{};
+		nm.hdr.hwndFrom = m_List;
+		nm.hdr.idFrom = m_List.GetDlgCtrlID();
+		nm.hdr.code = LVN_COLUMNCLICK;
+		nm.iSubItem = layout->SortColumn;
+		BOOL handled;
+		OnColumnClick(0, &nm.hdr, handled);
+		if (!layout->SortAscending)
+			OnColumnClick(0, &nm.hdr, handled);
+	}
+}
+
+void CView::SaveLayout(AppSettings& settings) {
+	ListLayout layout{};
+	auto header = m_List.GetHeader();
+	layout.Count = header.GetItemCount();
+	if (layout.Count > ListLayout::MaxColumns)
+		return;
+
+	layout.Dpi = DpiHelper::GetDpi(m_List);
+	for (int i = 0; i < layout.Count; i++)
+		layout.Widths[i] = m_List.GetColumnWidth(i);
+	m_List.GetColumnOrderArray(layout.Count, layout.Order);
+	layout.SortColumn = -1;
+	if (auto si = GetSortInfo(m_List)) {
+		layout.SortColumn = si->SortColumn;
+		layout.SortAscending = si->SortAscending;
+	}
+	settings.Set(AppSettings::JobListLayout, layout);
 }
 
 bool CView::AddBitsJob(IBackgroundCopyJob* pJob) {
@@ -361,6 +477,22 @@ bool CView::UpdateBitsJob(JobInfo* info) {
 	pJob->GetPriority(&info->Priority);
 	pJob->GetProgress(&info->Progress);
 
+	if (info->State == BG_JOB_STATE_ERROR || info->State == BG_JOB_STATE_TRANSIENT_ERROR) {
+		// described again only when the error changes: the descriptions come from message tables
+		CComPtr<IBackgroundCopyError> spError;
+		BG_ERROR_CONTEXT context;
+		HRESULT code;
+		if (SUCCEEDED(pJob->GetError(&spError)) && spError && SUCCEEDED(spError->GetError(&context, &code))
+			&& (code != info->ErrorCode || info->Error.IsEmpty())) {
+			info->Error = DescribeError(spError);
+			info->ErrorCode = code;
+		}
+	}
+	else {
+		info->Error.Empty();
+		info->ErrorCode = S_OK;
+	}
+
 	return true;
 }
 
@@ -387,6 +519,7 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	cm->AddColumn(L"Files", LVCFMT_RIGHT, 50);
 	cm->AddColumn(L"Priority", LVCFMT_LEFT, 110);
 	cm->AddColumn(L"Progress", LVCFMT_LEFT, 130);
+	cm->AddColumn(L"Error", LVCFMT_LEFT, 400);
 
 	CImageList images;
 	images.Create(16, 16, ILC_COLOR32, 8, 4);
@@ -511,6 +644,7 @@ LRESULT CView::OnDeleteCompletedJobs(WORD, WORD, HWND, BOOL&) {
 	m_List.SetItemState(-1, 0, LVIS_SELECTED | LVIS_FOCUSED);
 	m_List.SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
 	UpdateUI();
+	UpdateStatus();
 	return 0;
 }
 

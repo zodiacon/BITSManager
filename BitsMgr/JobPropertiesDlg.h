@@ -14,6 +14,7 @@ public:
 
 	BEGIN_MSG_MAP(CJobPropertiesDlg)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+		MESSAGE_HANDLER(WM_TIMER, OnTimer)
 		NOTIFY_CODE_HANDLER(NM_RCLICK, OnRightClick)
 		COMMAND_ID_HANDLER(ID_EDIT_COPY, OnEditCopy)
 		COMMAND_ID_HANDLER(IDOK, OnCloseCmd)
@@ -32,6 +33,10 @@ public:
 
 private:
 	void InitJob();
+	// state, progress, error and the files' progress, every second
+	void UpdateLive();
+	void SetTextIfChanged(UINT id, PCWSTR text);
+	LRESULT OnTimer(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	// sets what was changed; false (after showing the error) if BITS refused something
 	bool SaveChanges();
 

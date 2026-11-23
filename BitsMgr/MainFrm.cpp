@@ -9,6 +9,7 @@
 #include "View.h"
 #include "MainFrm.h"
 #include "AppSettings.h"
+#include "SecurityHelper.h"
 #include <WTLHelper.h>
 
 CMainFrame::CMainFrame() : m_view(this) {
@@ -31,7 +32,16 @@ BOOL CMainFrame::OnIdle() {
 }
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
+	m_Elevated = SecurityHelper::IsRunningElevated();
+
 	CMenuHandle hMenu = GetMenu();
+	if (m_Elevated) {
+		// already elevated: no Run as Administrator, and the title says so
+		hMenu.GetSubMenu(0).DeleteMenu(ID_FILE_RUNASADMIN, MF_BYCOMMAND);
+		CString title;
+		GetWindowText(title);
+		SetWindowText(title + L" (Administrator)");
+	}
 	UIAddMenu(hMenu);
 	InitMenu(hMenu);
 
@@ -45,12 +55,23 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 
 	CReBarCtrl(m_hWndToolBar).LockBands(TRUE);
 
-	CreateSimpleStatusBar();
+	// the panes' widths come from their string resources (templates of the longest text)
+	m_hWndStatusBar = m_StatusBar.Create(m_hWnd);
+	int panes[] = { ID_DEFAULT_PANE, IDS_PANE_JOBS, IDS_PANE_SCOPE };
+	m_StatusBar.SetPanes(panes, _countof(panes), false);
+	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
 
 	m_view.SetUpdateUI(this);
 	m_hWndClient = m_view.Create(m_hWnd, rcDefault, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN |
 		LVS_REPORT | LVS_OWNERDATA | LVS_SHOWSELALWAYS, WS_EX_CLIENTEDGE);
 	UISetCheck(ID_VIEW_STATUS_BAR, 1);
+
+	auto& settings = AppSettings::Get();
+	m_view.LoadLayout(settings);
+	if (settings.AlwaysOnTop()) {
+		SetWindowPos(HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+		UISetCheck(ID_OPTIONS_ALWAYSONTOP, true);
+	}
 
 	bool dark = WTLHelper::IsDarkMode();
 	UISetCheck(ID_OPTIONS_DARKMODE, dark);
@@ -73,6 +94,52 @@ BOOL CMainFrame::TrackPopupMenu(HMENU hMenu, DWORD flags, const POINT* pt) {
 	}
 	InitMenu(hMenu);
 	return ::TrackPopupMenuEx(hMenu, flags, pt->x, pt->y, m_hWnd, nullptr);
+}
+
+void CMainFrame::SetStatusText(int pane, PCWSTR text) {
+	m_StatusBar.SetPaneText(pane, text);
+}
+
+void CMainFrame::SaveSettings() {
+	auto& settings = AppSettings::Get();
+	settings.SaveWindowPosition(m_hWnd, AppSettings::MainWindowPlacement);
+	settings.AlwaysOnTop((GetExStyle() & WS_EX_TOPMOST) != 0);
+	m_view.SaveLayout(settings);
+	settings.Save();
+}
+
+LRESULT CMainFrame::OnClose(UINT, WPARAM, LPARAM, BOOL& bHandled) {
+	SaveSettings();
+	bHandled = FALSE;
+	return 0;
+}
+
+LRESULT CMainFrame::OnEndSession(UINT, WPARAM wParam, LPARAM, BOOL&) {
+	// at logoff or shutdown no window is closed, so this is the last chance to save
+	if (wParam)
+		SaveSettings();
+	return 0;
+}
+
+LRESULT CMainFrame::OnRunAsAdmin(WORD, WORD, HWND, BOOL&) {
+	WCHAR path[MAX_PATH];
+	::GetModuleFileName(nullptr, path, _countof(path));
+
+	// saved first, so the elevated instance starts with this one's layout
+	SaveSettings();
+	SHELLEXECUTEINFO sei = { sizeof(sei) };
+	sei.lpVerb = L"runas";
+	sei.lpFile = path;
+	sei.hwnd = m_hWnd;
+	sei.nShow = SW_SHOWNORMAL;
+	if (::ShellExecuteEx(&sei)) {
+		PostMessage(WM_CLOSE);
+	}
+	else if (auto error = ::GetLastError(); error != ERROR_CANCELLED) {
+		AtlMessageBox(m_hWnd, (PCWSTR)(L"Failed to start elevated.\n\n" + CView::ErrorText(HRESULT_FROM_WIN32(error))),
+			IDR_MAINFRAME, MB_ICONERROR);
+	}
+	return 0;
 }
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
@@ -109,6 +176,9 @@ LRESULT CMainFrame::OnAlwaysOnTop(WORD, WORD id, HWND, BOOL&) {
 	bool onTop = GetExStyle() & WS_EX_TOPMOST;
 	SetWindowPos(onTop ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 	UISetCheck(id, !onTop);
+	auto& settings = AppSettings::Get();
+	settings.AlwaysOnTop(!onTop);
+	settings.Save();
 
 	return 0;
 }
@@ -142,7 +212,10 @@ void CMainFrame::SetDarkMode(bool dark) {
 }
 
 void CMainFrame::InitMenu(HMENU hMenu) {
+	// InitMenu keeps a bitmap per icon handle, and GetShieldIcon makes a new icon on every call: get it once
+	static const HICON hShield = SecurityHelper::GetShieldIcon();
 	static const MenuItemData cmds[] = {
+		{ ID_FILE_RUNASADMIN, 0, hShield },
 		{ ID_JOB_CANCEL, IDI_CANCEL },
 		{ ID_JOB_PAUSE, IDI_SUSPENDED },
 		{ ID_JOB_RESUME, IDI_PLAY },

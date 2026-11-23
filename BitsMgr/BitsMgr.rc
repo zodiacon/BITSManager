@@ -56,6 +56,8 @@ BEGIN
         MENUITEM "&New Job...",                 ID_FILE_NEWJOB
         MENUITEM "Save &As...",                 ID_FILE_SAVE_AS
         MENUITEM SEPARATOR
+        MENUITEM "&Run as Administrator",       ID_FILE_RUNASADMIN
+        MENUITEM SEPARATOR
         MENUITEM "E&xit",                       ID_APP_EXIT
     END
     POPUP "&Edit"
@@ -187,7 +189,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,162,124,59,16
 END
 
-IDD_JOBPROPS DIALOGEX 0, 0, 357, 296
+IDD_JOBPROPS DIALOGEX 0, 0, 357, 326
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Job Properties"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -204,15 +206,17 @@ BEGIN
     CTEXT           "Static",IDC_STATE,218,89,76,12,SS_SUNKEN
     LTEXT           "Progress:",IDC_STATIC,6,108,32,8
     LTEXT           "Static",IDC_PROGRESS,60,108,114,12,0,WS_EX_STATICEDGE
-    GROUPBOX        "Notify Command Line",IDC_STATIC,6,126,336,60
-    LTEXT           "Program:",IDC_STATIC,17,142,30,8
-    EDITTEXT        IDC_PROGRAM,60,139,240,14,ES_AUTOHSCROLL
-    LTEXT           "Parameters:",IDC_STATIC,17,164,40,8
-    EDITTEXT        IDC_PARAMS,60,160,270,14,ES_AUTOHSCROLL
-    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,192,344,60
-    DEFPUSHBUTTON   "OK",IDOK,111,274,59,16
-    PUSHBUTTON      "Cancel",IDCANCEL,186,274,59,16
-    PUSHBUTTON      "...",IDC_BROWSE,306,139,24,14
+    GROUPBOX        "Notify Command Line",IDC_STATIC,6,156,336,60
+    LTEXT           "Program:",IDC_STATIC,17,172,30,8
+    EDITTEXT        IDC_PROGRAM,60,169,240,14,ES_AUTOHSCROLL
+    LTEXT           "Parameters:",IDC_STATIC,17,194,40,8
+    EDITTEXT        IDC_PARAMS,60,190,270,14,ES_AUTOHSCROLL
+    CONTROL         "",IDC_FILES,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,222,344,60
+    DEFPUSHBUTTON   "OK",IDOK,111,304,59,16
+    PUSHBUTTON      "Cancel",IDCANCEL,186,304,59,16
+    PUSHBUTTON      "...",IDC_BROWSE,306,169,24,14
+    LTEXT           "Error:",IDC_STATIC,6,126,22,8
+    EDITTEXT        IDC_ERROR,60,124,290,26,ES_MULTILINE | ES_READONLY | WS_VSCROLL
 END
 
 
@@ -237,7 +241,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 350
         TOPMARGIN, 7
-        BOTTOMMARGIN, 289
+        BOTTOMMARGIN, 319
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -339,7 +343,9 @@ BEGIN
     0, 0, 100, 100,
     50, 100, 0, 0,
     50, 100, 0, 0,
-    0, 0, 0, 0
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 100, 0
 END
 
 
@@ -371,6 +377,8 @@ STRINGTABLE
 BEGIN
     IDR_MAINFRAME           "BITS Manager v0.65"
     IDS_TITLE               "BITS Manager"
+    IDS_PANE_JOBS           "000 jobs: 000 transferring, 000 suspended, 000 errors"
+    IDS_PANE_SCOPE          "Current user's jobs (not elevated)"
 END
 
 STRINGTABLE

@@ -20,7 +20,14 @@ int Run(LPTSTR /*lpstrCmdLine*/ = nullptr, int nCmdShow = SW_SHOWDEFAULT) {
 		return 0;
 	}
 
-	wndMain.ShowWindow(nCmdShow);
+	// the saved placement shows the window; never restore it minimized
+	if (AppSettings::Get().LoadWindowPosition(wndMain, AppSettings::MainWindowPlacement)) {
+		if (wndMain.IsIconic())
+			wndMain.ShowWindow(SW_RESTORE);
+	}
+	else {
+		wndMain.ShowWindow(nCmdShow);
+	}
 
 	int nRet = theLoop.Run();
 

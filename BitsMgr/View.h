@@ -48,6 +48,13 @@ public:
 	static int JobProgressPercent(const BG_JOB_PROGRESS& progress);
 	// BITS's own description of an error (it knows the BG_E_* codes), else the system's
 	static CString ErrorText(HRESULT hr);
+	// the job's error (GetError): its description, with the context (local file, remote server...) and the file;
+	// empty if the job has none. code: the error's HRESULT
+	static CString GetJobError(IBackgroundCopyJob* pJob, HRESULT* code = nullptr);
+
+	// column widths, order and sort, kept in the settings
+	void LoadLayout(struct AppSettings const& settings);
+	void SaveLayout(struct AppSettings& settings);
 
 	BEGIN_MSG_MAP(CView)
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
@@ -85,8 +92,23 @@ private:
 		BG_JOB_TIMES Times;
 		BG_JOB_PRIORITY Priority;
 		BG_JOB_PROGRESS Progress;
+		CString Error;	// for jobs in an error state
+		HRESULT ErrorCode{ S_OK };
 		CComPtr<IBackgroundCopyJob> spJob;
 	};
+
+	// saved as a binary setting; loaded only if the saved size matches, so changing the struct discards old layouts
+	struct ListLayout {
+		static constexpr int MaxColumns = 32;
+		int Count;
+		UINT Dpi;
+		int SortColumn;
+		int SortAscending;
+		int Widths[MaxColumns];
+		int Order[MaxColumns];
+	};
+
+	void UpdateStatus();
 
 	// acknowledged or canceled: no longer in BITS
 	static bool IsFinalState(BG_JOB_STATE state);

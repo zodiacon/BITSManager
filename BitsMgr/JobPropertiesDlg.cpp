@@ -89,42 +89,81 @@ void CJobPropertiesDlg::InitJob() {
         GetDlgItem(IDC_PROGRAM).EnableWindow(FALSE);
     }
 
-    BG_JOB_STATE state = BG_JOB_STATE_ERROR;
-    m_pJob->GetState(&state);
-    SetDlgItemText(IDC_STATE, CView::JobStateToString(state));
     m_pJob->GetPriority(&m_OrgPriority);
     for (int i = 0; i < m_Priority.GetCount(); i++)
         if (m_Priority.GetItemData(i) == (DWORD_PTR)m_OrgPriority)
             m_Priority.SetCurSel(i);
 
+    UpdateLive();
+}
+
+void CJobPropertiesDlg::UpdateLive() {
+    // what changes while the dialog is open (the editable fields are left to the user)
+    BG_JOB_STATE state = BG_JOB_STATE_ERROR;
+    m_pJob->GetState(&state);
+    SetTextIfChanged(IDC_STATE, CView::JobStateToString(state));
+
+    BG_JOB_PROGRESS progress{};
+    m_pJob->GetProgress(&progress);
+    SetTextIfChanged(IDC_PROGRESS, CView::JobProgressToString(progress));
+
+    CString error;
+    if (state == BG_JOB_STATE_ERROR || state == BG_JOB_STATE_TRANSIENT_ERROR)
+        error = CView::GetJobError(m_pJob);
+    SetTextIfChanged(IDC_ERROR, error.IsEmpty() ? L"(none)" : (PCWSTR)error);
+
     CComPtr<IEnumBackgroundCopyFiles> spFiles;
     m_pJob->EnumFiles(&spFiles);
-    if (spFiles) {
-        ULONG count;
-        spFiles->GetCount(&count);
-        for (ULONG i = 0; i < count; i++) {
-            CComPtr<IBackgroundCopyFile> spFile;
-            spFiles->Next(1, &spFile, nullptr);
-            if (spFile) {
-                CString remote, local;
-                if (SUCCEEDED(spFile->GetRemoteName(&name))) {
-                    remote = name;
-                    ::CoTaskMemFree(name);
-                }
-                if (SUCCEEDED(spFile->GetLocalName(&name))) {
-                    local = name;
-                    ::CoTaskMemFree(name);
-                }
-                int n = m_List.InsertItem(m_List.GetItemCount(), remote);
-                m_List.SetItemText(n, 1, local);
-                if (state != BG_JOB_STATE_ERROR) {
-                    BG_FILE_PROGRESS progress;
-                    spFile->GetProgress(&progress);
-                    m_List.SetItemText(n, 2, FormatSize(progress.BytesTransferred) + L" / " + FormatSize(progress.BytesTotal));
-                }
+    if (!spFiles)
+        return;
+
+    ULONG count = 0;
+    spFiles->GetCount(&count);
+    for (ULONG i = 0; i < count; i++) {
+        CComPtr<IBackgroundCopyFile> spFile;
+        spFiles->Next(1, &spFile, nullptr);
+        if (!spFile)
+            continue;
+
+        // files can be added to a job, never removed: new ones are appended
+        if ((int)i >= m_List.GetItemCount()) {
+            CString remote, local;
+            PWSTR name;
+            if (SUCCEEDED(spFile->GetRemoteName(&name))) {
+                remote = name;
+                ::CoTaskMemFree(name);
             }
+            if (SUCCEEDED(spFile->GetLocalName(&name))) {
+                local = name;
+                ::CoTaskMemFree(name);
+            }
+            int n = m_List.InsertItem(m_List.GetItemCount(), remote);
+            m_List.SetItemText(n, 1, local);
         }
+
+        BG_FILE_PROGRESS fileProgress;
+        CString text;
+        if (SUCCEEDED(spFile->GetProgress(&fileProgress)))
+            text = FormatSize(fileProgress.BytesTransferred) + L" / " + FormatSize(fileProgress.BytesTotal);
+        CString current;
+        m_List.GetItemText(i, 2, current);
+        if (current != text)
+            m_List.SetItemText(i, 2, text);
     }
+}
+
+void CJobPropertiesDlg::SetTextIfChanged(UINT id, PCWSTR text) {
+    // setting the same text again would flicker, and reset the error box's scroll position and selection
+    CString current;
+    GetDlgItemText(id, current);
+    if (current != text)
+        SetDlgItemText(id, text);
+}
+
+LRESULT CJobPropertiesDlg::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
+    if (id == 1)
+        UpdateLive();
+    return 0;
 }
 
 LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
@@ -139,16 +178,13 @@ LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
     m_List.InsertColumn(1, L"Local Path", LVCFMT_LEFT, 200);
     m_List.InsertColumn(2, L"Progress", LVCFMT_CENTER, 100);
 
-    BG_JOB_PROGRESS progress;
-    m_pJob->GetProgress(&progress);
-    SetDlgItemText(IDC_PROGRESS, CView::JobProgressToString(progress));
-
     m_Priority.Attach(GetDlgItem(IDC_PRIORITY));
     BG_JOB_PRIORITY priorities[] = { BG_JOB_PRIORITY_FOREGROUND, BG_JOB_PRIORITY_HIGH, BG_JOB_PRIORITY_NORMAL, BG_JOB_PRIORITY_LOW };
     for(decltype(priorities[0]) p : priorities)
         m_Priority.SetItemData(m_Priority.AddString(CView::JobPriorityToString(p)), p);
 
     InitJob();
+    SetTimer(1, 1000);
 
     return 0;
 }

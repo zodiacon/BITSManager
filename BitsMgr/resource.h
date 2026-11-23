@@ -5,6 +5,8 @@
 #define IDD_ABOUTBOX                    100
 #define IDR_MAINFRAME                   128
 #define IDS_TITLE                       129
+#define IDS_PANE_JOBS                   130
+#define IDS_PANE_SCOPE                  131
 #define IDI_SUSPENDED                   202
 #define IDI_PLAY                        203
 #define IDI_CANCEL                      204
@@ -40,6 +42,7 @@
 #define IDC_URL                         1016
 #define IDC_LOCALPATH                   1017
 #define IDC_START                       1018
+#define IDC_ERROR                       1019
 #define ID_JOB_CANCEL                   32776
 #define ID_JOB_PAUSE                    32777
 #define ID_JOB_RESUME                   32778
@@ -50,14 +53,15 @@
 #define ID_EDIT_COPYURL                 32783
 #define ID_OPTIONS_DARKMODE             32784
 #define ID_JOB_COMPLETE                 32785
+#define ID_FILE_RUNASADMIN              32786
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        223
-#define _APS_NEXT_COMMAND_VALUE         32786
-#define _APS_NEXT_CONTROL_VALUE         1019
-#define _APS_NEXT_SYMED_VALUE           101
+#define _APS_NEXT_COMMAND_VALUE         32787
+#define _APS_NEXT_CONTROL_VALUE         1020
+#define _APS_NEXT_SYMED_VALUE           132
 #endif
 #endif
