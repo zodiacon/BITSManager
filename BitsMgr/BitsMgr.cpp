@@ -3,9 +3,11 @@
 
 #include "pch.h"
 #include "MainFrm.h"
-#include <ThemeHelper.h>
+#include <WTLHelper.h>
+#include "AppSettings.h"
 
 CAppModule _Module;
+AppSettings _Settings;
 
 int Run(LPTSTR /*lpstrCmdLine*/ = nullptr, int nCmdShow = SW_SHOWDEFAULT) {
 	CMessageLoop theLoop;
@@ -34,7 +36,12 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 	hRes = _Module.Init(nullptr, hInstance);
 	ATLASSERT(SUCCEEDED(hRes));
 
-	ThemeHelper::Init();
+	// the mode must be set before any window is created; without saved settings it follows the system
+	if (AppSettings::Get().Load(L"Software\\ScorpioSoftware\\BitsMgr"))
+		WTLHelper::InitDarkMode(AppSettings::Get().DarkMode() ? DarkModeKind::Dark : DarkModeKind::Light);
+	else
+		WTLHelper::InitDarkMode();
+
 	int nRet = Run(lpstrCmdLine, nCmdShow);
 
 	_Module.Term();

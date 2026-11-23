@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "JobPropertiesDlg.h"
 #include "DialogHelper.h"
+#include <WTLHelper.h>
 #include "View.h"
 #include "ListViewHelper.h"
 #include "ClipboardHelper.h"
@@ -79,7 +80,7 @@ void CJobPropertiesDlg::InitJob() {
 
 LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
     InitDynamicLayout();
-    AdjustOKCancelButtons();
+    AdjustOKCancelButtons(IDI_OK2, IDI_CANCEL);
     SetDialogIcon(IDI_FILE);
 
     m_List.Attach(GetDlgItem(IDC_FILES));
@@ -140,7 +141,9 @@ LRESULT CJobPropertiesDlg::OnRightClick(int, LPNMHDR hdr, BOOL&) {
         menu.LoadMenuW(IDR_CONTEXT);
         POINT pt;
         ::GetCursorPos(&pt);
-        auto cmd = (UINT)menu.GetSubMenu(1).TrackPopupMenu(0, pt.x, pt.y, m_hWnd);
+        auto popup = menu.GetSubMenu(1);
+        WTLHelper::InitMenu(popup, MenuItemData{ ID_EDIT_COPY, IDI_COPY });
+        auto cmd = (UINT)popup.TrackPopupMenu(0, pt.x, pt.y, m_hWnd);
         if (cmd) {
             LRESULT result;
             return ProcessWindowMessage(m_hWnd, WM_COMMAND, cmd, 0, result, 1);

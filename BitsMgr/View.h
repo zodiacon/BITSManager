@@ -35,9 +35,9 @@ public:
 	CString GetColumnText(HWND, int row, int col) const;
 	int GetRowImage(HWND, int row, int) const;
 
-	void Sort(const SortInfo* si);
-	bool OnRightClickList(HWND, int row, int col, POINT& pt);
-	bool OnDoubleClickList(HWND, int row, int col, POINT& pt);
+	void DoSort(const SortInfo* si);
+	bool OnRightClickList(HWND, int row, int col, POINT const& pt);
+	bool OnDoubleClickList(HWND, int row, int col, POINT const& pt);
 
 	static PCWSTR JobTypeToString(BG_JOB_TYPE type);
 	static PCWSTR JobStateToString(BG_JOB_STATE state);

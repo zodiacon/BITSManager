@@ -20,6 +20,7 @@ public:
 		COMMAND_ID_HANDLER(IDCANCEL, OnCloseCmd)
 		COMMAND_ID_HANDLER(IDC_BROWSE, OnBrowse)
 		COMMAND_ID_HANDLER(ID_EDIT_COPYURL, OnEditCopyURL)
+		CHAIN_MSG_MAP(CDialogHelper<CJobPropertiesDlg>)
 		CHAIN_MSG_MAP(CDynamicDialogLayout<CJobPropertiesDlg>)
 	ALT_MSG_MAP(1)
 	END_MSG_MAP()

@@ -8,8 +8,12 @@
 #include "aboutdlg.h"
 #include "View.h"
 #include "MainFrm.h"
+#include "AppSettings.h"
+#include <WTLHelper.h>
 
 CMainFrame::CMainFrame() : m_view(this) {
+	// the view is a member, not heap-allocated: CFrameView must not delete it in OnFinalMessage
+	m_view.SetStatic();
 }
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg) {
@@ -28,11 +32,8 @@ BOOL CMainFrame::OnIdle() {
 
 LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/) {
 	CMenuHandle hMenu = GetMenu();
-	AddMenu(hMenu);
 	UIAddMenu(hMenu);
-	AddMenu(IDR_CONTEXT);
-	InitCommandBar();
-	SetCheckIcon(IDI_OK);
+	InitMenu(hMenu);
 
 	CToolBarCtrl tb;
 	auto hWndToolBar = tb.Create(m_hWnd, nullptr, nullptr, ATL_SIMPLE_TOOLBAR_PANE_STYLE, 0, ATL_IDW_TOOLBAR);
@@ -51,6 +52,10 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 		LVS_REPORT | LVS_OWNERDATA | LVS_SHOWSELALWAYS, WS_EX_CLIENTEDGE);
 	UISetCheck(ID_VIEW_STATUS_BAR, 1);
 
+	bool dark = WTLHelper::IsDarkMode();
+	UISetCheck(ID_OPTIONS_DARKMODE, dark);
+	SetDarkMode(dark);
+
 	// register object for message filtering and idle updates
 	auto pLoop = _Module.GetMessageLoop();
 	ATLASSERT(pLoop != NULL);
@@ -66,7 +71,8 @@ BOOL CMainFrame::TrackPopupMenu(HMENU hMenu, DWORD flags, const POINT* pt) {
 		pt = &pt2;
 		::GetCursorPos(&pt2);
 	}
-	return ShowContextMenu(hMenu, flags, pt->x, pt->y);
+	InitMenu(hMenu);
+	return ::TrackPopupMenuEx(hMenu, flags, pt->x, pt->y, m_hWnd, nullptr);
 }
 
 LRESULT CMainFrame::OnDestroy(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled) {
@@ -107,11 +113,36 @@ LRESULT CMainFrame::OnAlwaysOnTop(WORD, WORD id, HWND, BOOL&) {
 	return 0;
 }
 
-void CMainFrame::InitCommandBar() {
-	struct {
-		UINT id, icon;
-		HICON hIcon = nullptr;
-	} cmds[] = {
+LRESULT CMainFrame::OnDarkMode(WORD, WORD id, HWND, BOOL&) {
+	auto& settings = AppSettings::Get();
+	// without saved settings the mode follows the system's, so toggle what's shown
+	bool dark = !WTLHelper::IsDarkMode();
+	settings.DarkMode(dark);
+	settings.Save();
+	SetDarkMode(dark);
+	UISetCheck(id, dark);
+
+	return 0;
+}
+
+void CMainFrame::SetDarkMode(bool dark) {
+	WTLHelper::SwitchToMode(dark ? DarkModeKind::Dark : DarkModeKind::Light, m_hWnd);
+
+	// menu icon bitmaps are drawn on the current menu background, so rebuild them for the new mode
+	InitMenu(GetMenu());
+
+	CStatusBarCtrl(m_hWndStatusBar).SetBkColor(dark ? DarkMode::getBackgroundColor() : CLR_DEFAULT);
+
+	::EnumThreadWindows(::GetCurrentThreadId(), [](auto h, auto) {
+		::RedrawWindow(h, nullptr, nullptr, RDW_ERASENOW | RDW_INTERNALPAINT | RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN);
+		return TRUE;
+		}, 0);
+
+	DrawMenuBar();
+}
+
+void CMainFrame::InitMenu(HMENU hMenu) {
+	static const MenuItemData cmds[] = {
 		{ ID_JOB_CANCEL, IDI_CANCEL },
 		{ ID_JOB_PAUSE, IDI_SUSPENDED },
 		{ ID_JOB_RESUME, IDI_PLAY },
@@ -122,9 +153,7 @@ void CMainFrame::InitCommandBar() {
 		{ ID_OPTIONS_ALWAYSONTOP, IDI_PIN },
 		{ ID_VIEW_REFRESH, IDI_REFRESH },
 	};
-	for (auto& cmd : cmds) {
-		AddCommand(cmd.id, cmd.icon);
-	}
+	WTLHelper::InitMenu(hMenu, cmds, _countof(cmds));
 }
 
 void CMainFrame::InitToolBar(CToolBarCtrl& tb, int size) {

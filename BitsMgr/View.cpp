@@ -35,10 +35,12 @@ CString CView::GetColumnText(HWND, int row, int col) const {
 		case 5: return CTime(item->Times.CreationTime).Format(L"%x %X");
 		case 6: return CTime(item->Times.ModificationTime).Format(L"%x %X");
 		case 7:
+		{
 			auto time = item->Times.TransferCompletionTime;
 			if (time.dwHighDateTime == 0 && time.dwLowDateTime == 0)
 				return L"";
 			return CTime(time).Format(L"%x %X");
+		}
 		case 8: text.Format(L"%u / %u", item->Progress.FilesTransferred, item->Progress.FilesTotal); break;
 		case 9: return JobPriorityToString(item->Priority);
 		case 10: return JobProgressToString(item->Progress);
@@ -62,7 +64,7 @@ int CView::GetRowImage(HWND, int row, int) const {
 	return 1;
 }
 
-void CView::Sort(const SortInfo* si) {
+void CView::DoSort(const SortInfo* si) {
 	auto compare = [&](auto& j1, auto& j2) -> bool {
 		switch (si->SortColumn) {
 			case 0: return SortHelper::Sort(j1->DisplayName, j2->DisplayName, si->SortAscending);
@@ -88,7 +90,7 @@ void CView::Sort(const SortInfo* si) {
 	std::sort(m_Jobs.begin(), m_Jobs.end(), compare);
 }
 
-bool CView::OnRightClickList(HWND, int row, int col, POINT& pt) {
+bool CView::OnRightClickList(HWND, int row, int col, POINT const& pt) {
 	if (row < 0)
 		return 0;
 
@@ -100,7 +102,7 @@ bool CView::OnRightClickList(HWND, int row, int col, POINT& pt) {
 	return true;
 }
 
-bool CView::OnDoubleClickList(HWND, int row, int col, POINT& pt) {
+bool CView::OnDoubleClickList(HWND, int row, int col, POINT const& pt) {
 	if (row < 0)
 		return false;
 
