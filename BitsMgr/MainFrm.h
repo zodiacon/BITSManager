@@ -27,6 +27,7 @@ public:
 		MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
 		MESSAGE_HANDLER(WM_CLOSE, OnClose)
 		MESSAGE_HANDLER(WM_ENDSESSION, OnEndSession)
+		MESSAGE_HANDLER(WM_DPICHANGED, OnDpiChanged)
 		COMMAND_ID_HANDLER(ID_APP_EXIT, OnFileExit)
 		COMMAND_ID_HANDLER(ID_FILE_RUNASADMIN, OnRunAsAdmin)
 		COMMAND_ID_HANDLER(ID_VIEW_STATUS_BAR, OnViewStatusBar)
@@ -44,7 +45,9 @@ public:
 //	LRESULT NotifyHandler(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/)
 
 private:
-	void InitToolBar(CToolBarCtrl& tb, int size = 24);
+	void InitToolBar();
+	// the tool bar's images at the window's current DPI, and its band resized to fit
+	void UpdateToolBar();
 	void InitMenu(HMENU hMenu);
 	void SetDarkMode(bool dark);
 	void SaveSettings();
@@ -54,6 +57,7 @@ private:
 
 	LRESULT OnClose(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& bHandled);
 	LRESULT OnEndSession(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
+	LRESULT OnDpiChanged(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnRunAsAdmin(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 
 	LRESULT OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
@@ -66,5 +70,6 @@ private:
 
 	CView m_view;
 	CMultiPaneStatusBarCtrl m_StatusBar;
+	CToolBarCtrl m_ToolBar;
 	bool m_Elevated{ false };
 };

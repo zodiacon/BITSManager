@@ -11,6 +11,26 @@
 #include "AppSettings.h"
 #include "SecurityHelper.h"
 #include <WTLHelper.h>
+#include <ToolbarHelper.h>
+#include <DpiHelper.h>
+
+namespace {
+	// at 96 DPI, scaled to the window's
+	constexpr int ToolBarIconSize = 24;
+
+	const ToolBarButtonInfo s_ToolBarButtons[] = {
+		{ ID_VIEW_REFRESH, IDI_REFRESH },
+		{ 0 },
+		{ ID_EDIT_COPY, IDI_COPY },
+		{ 0 },
+		{ ID_JOB_CANCEL, IDI_CANCEL },
+		{ ID_JOB_PAUSE, IDI_SUSPENDED },
+		{ ID_JOB_RESUME, IDI_PLAY },
+		{ ID_JOB_PROPERTIES, IDI_FILE },
+	};
+
+	const int s_Panes[] = { ID_DEFAULT_PANE, IDS_PANE_JOBS, IDS_PANE_SCOPE };
+}
 
 CMainFrame::CMainFrame() : m_view(this) {
 	// the view is a member, not heap-allocated: CFrameView must not delete it in OnFinalMessage
@@ -45,20 +65,11 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	UIAddMenu(hMenu);
 	InitMenu(hMenu);
 
-	CToolBarCtrl tb;
-	auto hWndToolBar = tb.Create(m_hWnd, nullptr, nullptr, ATL_SIMPLE_TOOLBAR_PANE_STYLE, 0, ATL_IDW_TOOLBAR);
-	InitToolBar(tb);
-
-	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
-	AddSimpleReBarBand(hWndToolBar, nullptr, TRUE);
-	UIAddToolBar(hWndToolBar);
-
-	CReBarCtrl(m_hWndToolBar).LockBands(TRUE);
+	InitToolBar();
 
 	// the panes' widths come from their string resources (templates of the longest text)
 	m_hWndStatusBar = m_StatusBar.Create(m_hWnd);
-	int panes[] = { ID_DEFAULT_PANE, IDS_PANE_JOBS, IDS_PANE_SCOPE };
-	m_StatusBar.SetPanes(panes, _countof(panes), false);
+	m_StatusBar.SetPanes(const_cast<int*>(s_Panes), _countof(s_Panes), false);
 	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
 
 	m_view.SetUpdateUI(this);
@@ -212,15 +223,21 @@ void CMainFrame::SetDarkMode(bool dark) {
 }
 
 void CMainFrame::InitMenu(HMENU hMenu) {
-	// InitMenu keeps a bitmap per icon handle, and GetShieldIcon makes a new icon on every call: get it once
-	static const HICON hShield = SecurityHelper::GetShieldIcon();
-	static const MenuItemData cmds[] = {
+	// InitMenu keeps a bitmap per icon handle, and GetShieldIcon makes a new icon on every call: one for each DPI
+	static std::unordered_map<UINT, HICON> s_Shields;
+	auto dpi = DpiHelper::GetDpi(m_hWnd);
+	auto& hShield = s_Shields[dpi];
+	if (!hShield)
+		hShield = IconHelper::GetShieldIcon(dpi);
+
+	const MenuItemData cmds[] = {
 		{ ID_FILE_RUNASADMIN, 0, hShield },
 		{ ID_JOB_CANCEL, IDI_CANCEL },
 		{ ID_JOB_PAUSE, IDI_SUSPENDED },
 		{ ID_JOB_RESUME, IDI_PLAY },
 		{ ID_JOB_PROPERTIES, IDI_FILE },
 		{ ID_JOB_COMPLETE, IDI_OK },
+		{ ID_JOB_SETTINGS, IDI_GEAR },
 		{ ID_FILE_NEWJOB, IDI_NEW_GEAR },
 		{ ID_FILE_SAVE_AS, IDI_SAVE_AS },
 		{ ID_APP_ABOUT, IDI_ABOUT },
@@ -228,34 +245,50 @@ void CMainFrame::InitMenu(HMENU hMenu) {
 		{ ID_OPTIONS_ALWAYSONTOP, IDI_PIN },
 		{ ID_VIEW_REFRESH, IDI_REFRESH },
 	};
-	WTLHelper::InitMenu(hMenu, cmds, _countof(cmds));
+	WTLHelper::InitMenu(hMenu, cmds, _countof(cmds), DpiHelper::SmallIconSize(dpi));
 }
 
-void CMainFrame::InitToolBar(CToolBarCtrl& tb, int size) {
-	CImageList tbImages;
-	tbImages.Create(size, size, ILC_COLOR32, 8, 4);
-	tb.SetImageList(tbImages);
+void CMainFrame::InitToolBar() {
+	CreateSimpleReBar(ATL_SIMPLE_REBAR_NOBORDER_STYLE);
+	m_ToolBar = ToolbarHelper::CreateAndInitToolBar(m_hWnd, s_ToolBarButtons, _countof(s_ToolBarButtons), ToolBarIconSize);
+	AddSimpleReBarBand(m_ToolBar, nullptr, TRUE);
+	UIAddToolBar(m_ToolBar);
+	CReBarCtrl(m_hWndToolBar).LockBands(TRUE);
+}
 
-	struct {
-		UINT id;
-		int image;
-		int style = BTNS_BUTTON;
-	} buttons[] = {
-		{ ID_VIEW_REFRESH, IDI_REFRESH },
-		{ 0 },
-		{ ID_EDIT_COPY, IDI_COPY },
-		{ 0 },
-		{ ID_JOB_CANCEL, IDI_CANCEL },
-		{ ID_JOB_PAUSE, IDI_SUSPENDED },
-		{ ID_JOB_RESUME, IDI_PLAY },
-		{ ID_JOB_PROPERTIES, IDI_FILE },
-	};
-	for (auto& b : buttons) {
-		if (b.id == 0)
-			tb.AddSeparator(0);
-		else {
-			int image = tbImages.AddIcon(AtlLoadIconImage(b.image, 0, size, size));
-			tb.AddButton(b.id, b.style, TBSTATE_ENABLED, image, nullptr, 0);
+void CMainFrame::UpdateToolBar() {
+	// the buttons keep their image indices; only the images are made again in the new size
+	ToolbarHelper::UpdateToolBarImages(m_ToolBar, s_ToolBarButtons, _countof(s_ToolBarButtons), ToolBarIconSize);
+	m_ToolBar.AutoSize();
+	// the band for the tool bar's new size, as AddSimpleReBarBand sets it: a button's height, the width to the last one's end
+	CReBarCtrl rebar(m_hWndToolBar);
+	for (UINT i = 0; i < rebar.GetBandCount(); i++) {
+		REBARBANDINFO band{ sizeof(band), RBBIM_CHILD };
+		if (rebar.GetBandInfo(i, &band) && band.hwndChild == m_ToolBar) {
+			CRect rc;
+			m_ToolBar.GetItemRect(m_ToolBar.GetButtonCount() - 1, &rc);
+			band.fMask = RBBIM_CHILDSIZE | RBBIM_IDEALSIZE;
+			band.cyMinChild = rc.Height();
+			band.cxIdeal = rc.right;
+			rebar.SetBandInfo(i, &band);
+			break;
 		}
 	}
+}
+
+LRESULT CMainFrame::OnDpiChanged(UINT, WPARAM, LPARAM lParam, BOOL&) {
+	// moved to a monitor with another DPI (or its DPI changed): take the size Windows suggests for the new DPI.
+	// The children get WM_DPICHANGED_AFTERPARENT after this (the job list scales its columns then)
+	auto rc = reinterpret_cast<RECT const*>(lParam);
+	SetWindowPos(nullptr, rc, SWP_NOZORDER | SWP_NOACTIVATE);
+
+	UpdateToolBar();
+	InitMenu(GetMenu());
+	DrawMenuBar();
+	// the panes' widths for the status bar's font at the new DPI
+	m_StatusBar.SetPanes(const_cast<int*>(s_Panes), _countof(s_Panes), false);
+	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
+	m_view.OnDpiChanged();
+	UpdateLayout();
+	return 0;
 }

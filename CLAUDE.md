@@ -25,7 +25,11 @@ msbuild BitsMgr.sln /p:Configuration=Release /p:Platform=x64 /m
 - Static CRT (`/MT`, `/MTd`) everywhere, as WTLHelper requires (a DLL-runtime project fails with LNK2038).
 - Dependencies come from vcpkg with user-wide integration: Detours (linked for WTLHelper's dark mode hooks) and WIL. The project sets `VcpkgUseStatic`, so the `x64-windows-static` / `x86-windows-static` triplets must be installed. WTL headers are vendored in `wtlhelper/WTL` (on the include path, including for the resource compiler).
 - `pch.h` targets Windows 10 (`WINVER`/`_WIN32_WINNT` `0x0A00`); WTLHelper's DPI helpers need it.
-- The manifest requests `HighestAvailable` UAC level. When elevated, the app enumerates BITS jobs of all users (`BG_JOB_ENUM_ALL_USERS`); otherwise only the current user's jobs. To launch without a UAC prompt for testing, set `__COMPAT_LAYER=RunAsInvoker`.
+- The project's linker manifest requests `HighestAvailable` UAC level; `BitsMgr.manifest` (merged in) declares per-monitor v2 DPI awareness. When elevated, the app enumerates BITS jobs of all users (`BG_JOB_ENUM_ALL_USERS`); otherwise only the current user's jobs. To launch without a UAC prompt for testing, set `__COMPAT_LAYER=RunAsInvoker`.
+
+## Testing
+
+There are no automated tests; changes are checked by running the app against real BITS jobs. **The list shows the machine's real jobs** (other apps', such as Outlook's address book download, whose files and settings BITS can't restore once changed). Test with jobs created for the purpose (`Start-BitsTransfer -Asynchronous -Suspended` with a `http://localhost:1/...` source, which never downloads anything), and before driving any command that changes a job, verify which job is selected: the list's order depends on the saved sort, so a row position is not a job. Opening the properties dialog and reading its GUID field (`WM_GETTEXT`; `GetWindowText` doesn't read another process's edit controls) identifies it; Add File and Settings opened from that dialog act on the same job. Remove the test jobs afterwards (`Remove-BitsTransfer`).
 
 ## Architecture
 
@@ -39,6 +43,10 @@ Small WTL SDI app; all source is in `BitsMgr/` with precompiled header `pch.h`. 
 - Status bar: a `CMultiPaneStatusBarCtrl` whose pane IDs are string resources (`IDS_PANE_*`); each string is a template of the longest text and sets the pane's width. The view writes the job counts after every refresh through `IMainFrame::SetStatusText`.
 - Elevation: not elevated, File > Run as Administrator restarts the app with the `runas` verb (settings saved first); elevated, the item is removed and the title says so.
 - `NewJobDlg.*`: File > New Job; collects name, type (download/upload), priority, one URL and local file. `CView::OnNewJob` creates the job (`CreateJob`, `AddFile`, optionally `Resume`) and cancels it if adding the file fails.
+- `AddFileDlg.*`: the properties dialog's Add File; `AddFile` on the job (BITS refuses a second file for upload jobs, and any file for finished ones), after which `UpdateLive` shows the new row.
+- `JobSettingsDlg.*`: Job > Settings (and the properties dialog's Settings button): retry delay, no-progress timeout, notification flags, proxy, HTTP headers and security flags (`IBackgroundCopyJobHttpOptions`), credentials (`IBackgroundCopyJob2`). It keeps the values it loaded and sets only what changed. Credentials can't be read back: they're set only if a user name is typed, and Remove acts at once.
+
+DPI: per-monitor v2. Sizes are given at 96 DPI and scaled with `DpiHelper`. On `WM_DPICHANGED` the frame takes the suggested rectangle, rebuilds the tool bar images (`ToolbarHelper::UpdateToolBarImages`, then resizes its rebar band), the menu icons (`InitMenu` at `SmallIconSize`, a shield icon per DPI since `InitMenu` caches by icon handle), and the status bar panes (`SetPanes` again), and calls `CView::OnDpiChanged` for the row icons. Column widths rescale themselves: `ColumnManager::AddColumn` scales them and enables `ListViewHelper::EnableColumnDpiScaling`; a dialog's list view needs both done by hand. Dialogs scale themselves, and `CDialogHelper` redoes their button icons.
 - `SecurityHelper.*`: elevation check and shield icon.
 
 Which job states a command applies to is decided in one place, `CView::CanApply`. It drives the toolbar and menu enabling (`UpdateUI`, run after every refresh), the context menu (`EnableMenuItems`), and which selected jobs a command acts on (`ApplyToSelection`). Acknowledged and canceled jobs (`IsFinalState`) are no longer in BITS: they stay listed, unqueried, until Job > Delete Completed Jobs. The list is virtual, so selection is by index; anything that reorders `m_Jobs` must carry the selection over by job ID (`GetSelectedIds`/`SelectIds`).

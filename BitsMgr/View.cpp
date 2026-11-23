@@ -11,10 +11,12 @@
 #include "SortHelper.h"
 #include "JobPropertiesDlg.h"
 #include "NewJobDlg.h"
+#include "JobSettingsDlg.h"
 #include "ClipboardHelper.h"
 #include "ListViewHelper.h"
 #include "AppSettings.h"
 #include <DpiHelper.h>
+#include <IconHelper.h>
 
 void CView::SetUpdateUI(CUpdateUIBase* ui) {
 	m_pUI = ui;
@@ -207,6 +209,7 @@ bool CView::CanApply(UINT id, BG_JOB_STATE state) {
 		// Resume also retries a job in the error state
 		case ID_JOB_RESUME: return state == BG_JOB_STATE_SUSPENDED || state == BG_JOB_STATE_ERROR;
 		case ID_JOB_COMPLETE: return state == BG_JOB_STATE_TRANSFERRED;
+		case ID_JOB_SETTINGS: return !IsFinalState(state);
 	}
 	return true;
 }
@@ -223,6 +226,7 @@ void CView::UpdateUI() {
 		m_pUI->UIEnable(id, CanApplyToSelection(id));
 	auto count = m_List.GetSelectedCount();
 	m_pUI->UIEnable(ID_JOB_PROPERTIES, count == 1);
+	m_pUI->UIEnable(ID_JOB_SETTINGS, count == 1 && CanApplyToSelection(ID_JOB_SETTINGS));
 	m_pUI->UIEnable(ID_EDIT_COPYURL, count == 1);
 }
 
@@ -231,6 +235,7 @@ void CView::EnableMenuItems(HMENU hMenu) const {
 	for (auto id : { ID_JOB_CANCEL, ID_JOB_PAUSE, ID_JOB_RESUME, ID_JOB_COMPLETE })
 		menu.EnableMenuItem(id, MF_BYCOMMAND | (CanApplyToSelection(id) ? MF_ENABLED : MF_GRAYED));
 	menu.EnableMenuItem(ID_JOB_PROPERTIES, MF_BYCOMMAND | (m_List.GetSelectedCount() == 1 ? MF_ENABLED : MF_GRAYED));
+	menu.EnableMenuItem(ID_JOB_SETTINGS, MF_BYCOMMAND | (m_List.GetSelectedCount() == 1 && CanApplyToSelection(ID_JOB_SETTINGS) ? MF_ENABLED : MF_GRAYED));
 }
 
 HRESULT CView::ApplyToSelection(UINT id, PCWSTR verb, std::function<HRESULT(IBackgroundCopyJob*)> const& action) {
@@ -521,15 +526,7 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	cm->AddColumn(L"Progress", LVCFMT_LEFT, 130);
 	cm->AddColumn(L"Error", LVCFMT_LEFT, 400);
 
-	CImageList images;
-	images.Create(16, 16, ILC_COLOR32, 8, 4);
-	UINT icons[] = {
-		IDI_SUSPENDED, IDI_GEAR, IDI_DOWNLOAD, IDI_UPLOAD, IDI_OK, IDI_OK2, IDI_STOP2,
-		IDI_CANCEL,
-	};
-	for (auto icon : icons)
-		images.AddIcon(AtlLoadIconImage(icon, 0, 16, 16));
-	m_List.SetImageList(images, LVSIL_SMALL);
+	UpdateImageList();
 
 	Refresh();
 
@@ -537,6 +534,29 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	UpdateUI();
 
 	return 0;
+}
+
+void CView::UpdateImageList() {
+	// the row icons (GetRowImage's indices) at the small icon size for the list's DPI
+	auto size = DpiHelper::SmallIconSize(m_List);
+	CImageList images;
+	images.Create(size, size, ILC_COLOR32, 8, 4);
+	const int icons[] = {
+		IDI_SUSPENDED, IDI_GEAR, IDI_DOWNLOAD, IDI_UPLOAD, IDI_OK, IDI_OK2, IDI_STOP2, IDI_CANCEL,
+	};
+	for (auto icon : icons) {
+		CIcon hIcon(IconHelper::Load(icon, size));
+		images.AddIcon(hIcon);
+	}
+	CImageList old = m_List.SetImageList(images, LVSIL_SMALL);
+	if (old)
+		old.Destroy();
+}
+
+void CView::OnDpiChanged() {
+	// the columns scale themselves (ColumnManager enabled that); the icons are made again for the new size
+	UpdateImageList();
+	m_List.Invalidate();
 }
 
 LRESULT CView::OnTimer(UINT, WPARAM id, LPARAM, BOOL&) {
@@ -704,3 +724,11 @@ LRESULT CView::OnSaveAs(WORD, WORD, HWND, BOOL&) {
 	return 0;
 }
 
+
+LRESULT CView::OnJobSettings(WORD, WORD, HWND, BOOL&) {
+	if (m_List.GetSelectedCount() != 1)
+		return 0;
+	CJobSettingsDlg dlg(m_Jobs[m_List.GetNextItem(-1, LVIS_SELECTED)]->spJob);
+	dlg.DoModal();
+	return 0;
+}

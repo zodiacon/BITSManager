@@ -55,6 +55,8 @@ public:
 	// column widths, order and sort, kept in the settings
 	void LoadLayout(struct AppSettings const& settings);
 	void SaveLayout(struct AppSettings& settings);
+	// the frame's DPI changed (WM_DPICHANGED)
+	void OnDpiChanged();
 
 	BEGIN_MSG_MAP(CView)
 		MESSAGE_HANDLER(WM_TIMER, OnTimer)
@@ -68,6 +70,7 @@ public:
 		COMMAND_ID_HANDLER(ID_JOB_PAUSE, OnSuspendJob)
 		COMMAND_ID_HANDLER(ID_JOB_RESUME, OnResumeJob)
 		COMMAND_ID_HANDLER(ID_JOB_PROPERTIES, OnJobProps)
+		COMMAND_ID_HANDLER(ID_JOB_SETTINGS, OnJobSettings)
 		COMMAND_ID_HANDLER(ID_EDIT_COPY, OnEditCopy)
 		COMMAND_ID_HANDLER(ID_JOB_COMPLETE, OnCompleteJob)
 		COMMAND_ID_HANDLER(ID_JOB_DELETECOMPLETEDJOBS, OnDeleteCompletedJobs)
@@ -109,6 +112,7 @@ private:
 	};
 
 	void UpdateStatus();
+	void UpdateImageList();
 
 	// acknowledged or canceled: no longer in BITS
 	static bool IsFinalState(BG_JOB_STATE state);
@@ -135,6 +139,7 @@ private:
 	LRESULT OnResumeJob(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnItemChanged(int /*idCtrl*/, LPNMHDR /*pnmh*/, BOOL& /*bHandled*/);
 	LRESULT OnJobProps(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnJobSettings(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnEditCopy(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/) const;
 	LRESULT OnCompleteJob(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnDeleteCompletedJobs(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);

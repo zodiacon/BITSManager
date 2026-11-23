@@ -2,9 +2,12 @@
 #include "JobPropertiesDlg.h"
 #include "DialogHelper.h"
 #include <WTLHelper.h>
+#include <DpiHelper.h>
 #include "View.h"
 #include "ListViewHelper.h"
 #include "ClipboardHelper.h"
+#include "AddFileDlg.h"
+#include "JobSettingsDlg.h"
 
 CJobPropertiesDlg::CJobPropertiesDlg(IBackgroundCopyJob* pJob) : m_pJob(pJob) {
 }
@@ -174,9 +177,11 @@ LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
     m_List.Attach(GetDlgItem(IDC_FILES));
     m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_INFOTIP | LVS_EX_DOUBLEBUFFER);
 
-    m_List.InsertColumn(0, L"Remote URL", LVCFMT_LEFT, 250);
-    m_List.InsertColumn(1, L"Local Path", LVCFMT_LEFT, 200);
-    m_List.InsertColumn(2, L"Progress", LVCFMT_CENTER, 100);
+    // widths at 96 DPI, scaled to the dialog's; and again when its DPI changes
+    m_List.InsertColumn(0, L"Remote URL", LVCFMT_LEFT, DpiHelper::Scale(250, m_hWnd));
+    m_List.InsertColumn(1, L"Local Path", LVCFMT_LEFT, DpiHelper::Scale(200, m_hWnd));
+    m_List.InsertColumn(2, L"Progress", LVCFMT_CENTER, DpiHelper::Scale(100, m_hWnd));
+    ListViewHelper::EnableColumnDpiScaling(m_List);
 
     m_Priority.Attach(GetDlgItem(IDC_PRIORITY));
     BG_JOB_PRIORITY priorities[] = { BG_JOB_PRIORITY_FOREGROUND, BG_JOB_PRIORITY_HIGH, BG_JOB_PRIORITY_NORMAL, BG_JOB_PRIORITY_LOW };
@@ -262,7 +267,7 @@ LRESULT CJobPropertiesDlg::OnRightClick(int, LPNMHDR hdr, BOOL&) {
         POINT pt;
         ::GetCursorPos(&pt);
         auto popup = menu.GetSubMenu(1);
-        WTLHelper::InitMenu(popup, MenuItemData{ ID_EDIT_COPY, IDI_COPY });
+        WTLHelper::InitMenu(popup, MenuItemData{ ID_EDIT_COPY, IDI_COPY }, DpiHelper::SmallIconSize(m_hWnd));
         // TPM_RETURNCMD: the command comes back here rather than as a posted WM_COMMAND
         auto cmd = (UINT)popup.TrackPopupMenu(TPM_RETURNCMD, pt.x, pt.y, m_hWnd);
         if (cmd)
@@ -293,5 +298,29 @@ LRESULT CJobPropertiesDlg::OnEditCopyURL(WORD, WORD, HWND, BOOL&) {
     m_List.GetItemText(m_List.GetSelectedIndex(), 0, text);
     ClipboardHelper::CopyText(m_hWnd, text);
 
+    return 0;
+}
+
+LRESULT CJobPropertiesDlg::OnAddFile(WORD, WORD, HWND, BOOL&) {
+    BG_JOB_TYPE type = BG_JOB_TYPE_DOWNLOAD;
+    m_pJob->GetType(&type);
+    CAddFileDlg dlg(type);
+    if (dlg.DoModal() != IDOK)
+        return 0;
+
+    // an upload job takes one file only, and no job takes files once it's canceled or acknowledged: BITS says so
+    auto hr = m_pJob->AddFile(dlg.GetUrl(), dlg.GetLocalPath());
+    if (FAILED(hr)) {
+        AtlMessageBox(m_hWnd, (PCWSTR)(L"Failed to add the file.\n\n" + CView::ErrorText(hr)), IDR_MAINFRAME, MB_ICONERROR);
+        return 0;
+    }
+    // the new file's row, and the job's new totals
+    UpdateLive();
+    return 0;
+}
+
+LRESULT CJobPropertiesDlg::OnSettings(WORD, WORD, HWND, BOOL&) {
+    CJobSettingsDlg dlg(m_pJob);
+    dlg.DoModal();
     return 0;
 }
