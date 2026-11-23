@@ -10,6 +10,7 @@
 #include "SecurityHelper.h"
 #include "SortHelper.h"
 #include "JobPropertiesDlg.h"
+#include "NewJobDlg.h"
 #include "ClipboardHelper.h"
 #include "ListViewHelper.h"
 
@@ -77,12 +78,8 @@ void CView::DoSort(const SortInfo* si) {
 			case 7: return SortHelper::Sort(*(LONGLONG*)&j1->Times.TransferCompletionTime, *(LONGLONG*)&j2->Times.TransferCompletionTime, si->SortAscending);
 			case 8: return SortHelper::Sort(j1->Progress.FilesTotal, j2->Progress.FilesTotal, si->SortAscending);
 			case 9: return SortHelper::Sort(j1->Priority, j2->Priority, si->SortAscending);
-			case 10: 
-				auto& progress1 = j1->Progress;
-				auto& progress2 = j2->Progress;
-				if (progress1.BytesTotal == 0 || progress2.BytesTotal == 0)
-					return false;
-				return SortHelper::Sort(progress1.BytesTransferred * 100 / progress1.BytesTotal, progress2.BytesTransferred * 100 / progress2.BytesTotal, si->SortAscending);
+			// unknown sizes sort as -1, keeping the ordering consistent for std::sort
+			case 10: return SortHelper::Sort(JobProgressPercent(j1->Progress), JobProgressPercent(j2->Progress), si->SortAscending);
 		}
 		return false;
 	};
@@ -94,10 +91,11 @@ bool CView::OnRightClickList(HWND, int row, int col, POINT const& pt) {
 	if (row < 0)
 		return 0;
 
-	auto& item = m_Jobs[row];
 	CMenu menu;
 	menu.LoadMenu(IDR_CONTEXT);
-	Frame()->TrackPopupMenu(menu.GetSubMenu(0));
+	auto popup = menu.GetSubMenu(0);
+	EnableMenuItems(popup);
+	Frame()->TrackPopupMenu(popup);
 
 	return true;
 }
@@ -145,25 +143,122 @@ PCWSTR CView::JobPriorityToString(BG_JOB_PRIORITY priority) {
 	return L"";
 }
 
+int CView::JobProgressPercent(const BG_JOB_PROGRESS& progress) {
+	if (progress.BytesTotal == 0 || progress.BytesTotal == BG_SIZE_UNKNOWN)
+		return -1;
+	return (int)(progress.BytesTransferred * 100 / progress.BytesTotal);
+}
+
 CString CView::JobProgressToString(const BG_JOB_PROGRESS& progress) {
 	CString text;
-	if(progress.FilesTotal > 0 && progress.BytesTotal != (UINT64)-1)
-		text.Format(L"%u %% (%llu / %llu)", 
-			progress.BytesTransferred * 100 / progress.BytesTotal, progress.BytesTransferred, progress.BytesTotal);
+	if (progress.FilesTotal == 0)
+		return text;
+
+	if (auto percent = JobProgressPercent(progress); percent >= 0)
+		text.Format(L"%d %% (%llu / %llu)", percent, progress.BytesTransferred, progress.BytesTotal);
+	else if (progress.BytesTotal == 0)
+		text = L"(empty)";
+	else
+		text.Format(L"%llu / ?", progress.BytesTransferred);
 	return text;
 }
 
-void CView::UpdateUI() {
-	auto count = m_List.GetSelectedCount();
-	JobInfo* info{ nullptr };
-	if (count > 0) {
-		info = m_Jobs[m_List.GetNextItem(-1, LVIS_SELECTED)].get();
+CString CView::ErrorText(HRESULT hr) {
+	CString text;
+	PWSTR desc = nullptr;
+	CComPtr<IBackgroundCopyManager> spMgr;
+	spMgr.CoCreateInstance(__uuidof(BackgroundCopyManager));
+	if (spMgr && SUCCEEDED(spMgr->GetErrorDescription(hr, LANGIDFROMLCID(::GetThreadLocale()), &desc)) && desc) {
+		text = desc;
+		::CoTaskMemFree(desc);
 	}
-	m_pUI->UIEnable(ID_JOB_CANCEL, count > 1 || (count == 1 && info->State != BG_JOB_STATE_TRANSFERRED && info->State != BG_JOB_STATE_CANCELLED));
-	m_pUI->UIEnable(ID_JOB_PAUSE, count > 0 && info->State == BG_JOB_STATE_TRANSFERRING);
-	m_pUI->UIEnable(ID_JOB_RESUME, count > 0 && info->State == BG_JOB_STATE_SUSPENDED);
+	else {
+		PWSTR msg = nullptr;
+		if (::FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			nullptr, hr, 0, (PWSTR)&msg, 0, nullptr)) {
+			text = msg;
+			::LocalFree(msg);
+		}
+	}
+	text.Trim();
+	CString code;
+	code.Format(L" (0x%08X)", hr);
+	return text + code;
+}
+
+void CView::ShowError(PCWSTR what, HRESULT hr) {
+	AtlMessageBox(*this, (PCWSTR)(CString(what) + L"\n\n" + ErrorText(hr)), IDR_MAINFRAME, MB_ICONERROR);
+}
+
+bool CView::IsFinalState(BG_JOB_STATE state) {
+	return state == BG_JOB_STATE_ACKNOWLEDGED || state == BG_JOB_STATE_CANCELLED;
+}
+
+bool CView::CanApply(UINT id, BG_JOB_STATE state) {
+	switch (id) {
+		case ID_JOB_CANCEL: return !IsFinalState(state);
+		case ID_JOB_PAUSE:
+			return state == BG_JOB_STATE_QUEUED || state == BG_JOB_STATE_CONNECTING ||
+				state == BG_JOB_STATE_TRANSFERRING || state == BG_JOB_STATE_TRANSIENT_ERROR;
+		// Resume also retries a job in the error state
+		case ID_JOB_RESUME: return state == BG_JOB_STATE_SUSPENDED || state == BG_JOB_STATE_ERROR;
+		case ID_JOB_COMPLETE: return state == BG_JOB_STATE_TRANSFERRED;
+	}
+	return true;
+}
+
+bool CView::CanApplyToSelection(UINT id) const {
+	for (int i = -1; (i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0; )
+		if (CanApply(id, m_Jobs[i]->State))
+			return true;
+	return false;
+}
+
+void CView::UpdateUI() {
+	for (auto id : { ID_JOB_CANCEL, ID_JOB_PAUSE, ID_JOB_RESUME, ID_JOB_COMPLETE })
+		m_pUI->UIEnable(id, CanApplyToSelection(id));
+	auto count = m_List.GetSelectedCount();
 	m_pUI->UIEnable(ID_JOB_PROPERTIES, count == 1);
 	m_pUI->UIEnable(ID_EDIT_COPYURL, count == 1);
+}
+
+void CView::EnableMenuItems(HMENU hMenu) const {
+	CMenuHandle menu(hMenu);
+	for (auto id : { ID_JOB_CANCEL, ID_JOB_PAUSE, ID_JOB_RESUME, ID_JOB_COMPLETE })
+		menu.EnableMenuItem(id, MF_BYCOMMAND | (CanApplyToSelection(id) ? MF_ENABLED : MF_GRAYED));
+	menu.EnableMenuItem(ID_JOB_PROPERTIES, MF_BYCOMMAND | (m_List.GetSelectedCount() == 1 ? MF_ENABLED : MF_GRAYED));
+}
+
+HRESULT CView::ApplyToSelection(UINT id, PCWSTR verb, std::function<HRESULT(IBackgroundCopyJob*)> const& action) {
+	HRESULT result = S_OK;
+	for (int i = -1; (i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0; ) {
+		auto& item = m_Jobs[i];
+		if (!CanApply(id, item->State))
+			continue;
+		auto hr = action(item->spJob);
+		if (FAILED(hr)) {
+			ShowError(CString(L"Failed to ") + verb + L" job \"" + item->DisplayName + L"\".", hr);
+			result = hr;
+			break;
+		}
+	}
+	Refresh();
+	UpdateUI();
+	return result;
+}
+
+std::vector<Guid> CView::GetSelectedIds() const {
+	std::vector<Guid> ids;
+	for (int i = -1; (i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0; )
+		ids.push_back(m_Jobs[i]->Id);
+	return ids;
+}
+
+void CView::SelectIds(std::vector<Guid> const& ids) {
+	m_List.SetItemState(-1, 0, LVIS_SELECTED);
+	for (size_t i = 0; i < m_Jobs.size(); i++)
+		if (std::find(ids.begin(), ids.end(), m_Jobs[i]->Id) != ids.end())
+			m_List.SetItemState((int)i, LVIS_SELECTED, LVIS_SELECTED);
 }
 
 void CView::ShowProperties(int index) {
@@ -172,12 +267,16 @@ void CView::ShowProperties(int index) {
 }
 
 void CView::Refresh() {
+	// acknowledged and canceled jobs are gone from BITS and can't change: they stay listed
+	// (until Delete Completed Jobs) without being queried
 	for (auto& job : m_Jobs)
-		UpdateBitsJob(job.get());
+		if (!IsFinalState(job->State))
+			UpdateBitsJob(job.get());
 
 	if (m_spMgr) {
+		bool added = false;
 		CComPtr<IEnumBackgroundCopyJobs> spJobs;
-		m_spMgr->EnumJobsW(SecurityHelper::IsRunningElevated() ? BG_JOB_ENUM_ALL_USERS : 0, &spJobs);
+		m_spMgr->EnumJobsW(m_Elevated ? BG_JOB_ENUM_ALL_USERS : 0, &spJobs);
 		if (spJobs) {
 			ULONG count;
 			spJobs->GetCount(&count);
@@ -187,13 +286,22 @@ void CView::Refresh() {
 				if (spJob) {
 					Guid id;
 					spJob->GetId(&id);
-					if (auto it = m_JobsMap.find(id); it == m_JobsMap.end())
+					if (auto it = m_JobsMap.find(id); it == m_JobsMap.end()) {
 						AddBitsJob(spJob);
+						added = true;
+					}
 				}
 			}
 		}
 		m_List.SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
+		if (added) {
+			// keep the current sort order; the selection is by index, so carry it over by job
+			auto selected = GetSelectedIds();
+			Sort(m_List);
+			SelectIds(selected);
+		}
 	}
+	UpdateUI();
 }
 
 bool CView::AddBitsJob(IBackgroundCopyJob* pJob) {
@@ -210,18 +318,23 @@ bool CView::AddBitsJob(IBackgroundCopyJob* pJob) {
 	}
 
 	if (SUCCEEDED(pJob->GetOwner(&text))) {
+		// the SID itself if it can't be resolved (e.g. a deleted account)
+		info->Owner = text;
 		PSID sid;
 		if (::ConvertStringSidToSid(text, &sid)) {
-			WCHAR name[32], domain[32];
-			DWORD lname = _countof(name), ldomain = _countof(domain);
+			DWORD lname = 0, ldomain = 0;
 			SID_NAME_USE use;
-			if (::LookupAccountSid(nullptr, sid, name, &lname, domain, &ldomain, &use)) {
-				info->Owner = CString(domain) + L"\\" + name;
+			::LookupAccountSid(nullptr, sid, nullptr, &lname, nullptr, &ldomain, &use);
+			if (lname > 0) {
+				CString name, domain;
+				if (::LookupAccountSid(nullptr, sid, name.GetBufferSetLength(lname), &lname,
+					domain.GetBufferSetLength(ldomain), &ldomain, &use)) {
+					name.ReleaseBuffer();
+					domain.ReleaseBuffer();
+					info->Owner = domain.IsEmpty() ? name : domain + L"\\" + name;
+				}
 			}
 			::LocalFree(sid);
-		}
-		else {
-			info->Owner = text;
 		}
 		::CoTaskMemFree(text);
 	}
@@ -242,7 +355,7 @@ bool CView::UpdateBitsJob(JobInfo* info) {
 		info->DisplayName = text;
 		::CoTaskMemFree(text);
 	}
-	ATLVERIFY(SUCCEEDED(pJob->GetState(&info->State)));
+	pJob->GetState(&info->State);
 
 	pJob->GetTimes(&info->Times);
 	pJob->GetPriority(&info->Priority);
@@ -256,8 +369,11 @@ LRESULT CView::OnCreate(UINT, WPARAM, LPARAM, BOOL&) {
 	m_hWndClient = m_List.Create(m_hWnd, rcDefault, nullptr, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | LVS_REPORT | LVS_OWNERDATA);
 	m_List.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
 	auto hr = m_spMgr.CoCreateInstance(__uuidof(BackgroundCopyManager));
-	if (FAILED(hr))
+	if (FAILED(hr)) {
+		ShowError(L"Failed to connect to the BITS service.", hr);
 		return -1;
+	}
+	m_Elevated = SecurityHelper::IsRunningElevated();
 
 	auto cm = GetColumnManager(m_List);
 	cm->AddColumn(L"Display Name", LVCFMT_LEFT, 350);
@@ -304,47 +420,29 @@ LRESULT CView::OnRefresh(WORD, WORD, HWND, BOOL&) {
 }
 
 LRESULT CView::OnCancelJob(WORD, WORD, HWND, BOOL&) {
-	auto count = m_List.GetSelectedCount();
-	if (count) {
-		CString text;
-		text.Format(L"Cancel %d job(s)?", count);
-		if (IDNO == AtlMessageBox(*this, (PCWSTR)text, IDR_MAINFRAME, MB_YESNO | MB_DEFBUTTON2 | MB_ICONWARNING))
-			return 0;
+	int count = 0;
+	for (int i = -1; (i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0; )
+		if (CanApply(ID_JOB_CANCEL, m_Jobs[i]->State))
+			count++;
+	if (count == 0)
+		return 0;
 
-		int i = -1;
-		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
-			auto& item = m_Jobs[i];
-			item->spJob->Cancel();
-		}
-		Refresh();
-	}
+	CString text;
+	text.Format(L"Cancel %d job(s)?", count);
+	if (IDNO == AtlMessageBox(*this, (PCWSTR)text, IDR_MAINFRAME, MB_YESNO | MB_DEFBUTTON2 | MB_ICONWARNING))
+		return 0;
+
+	ApplyToSelection(ID_JOB_CANCEL, L"cancel", [](auto job) { return job->Cancel(); });
 	return 0;
 }
 
 LRESULT CView::OnSuspendJob(WORD, WORD, HWND, BOOL&) {
-	auto count = m_List.GetSelectedCount();
-	if (count) {
-		int i = -1;
-		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
-			auto& item = m_Jobs[i];
-			item->spJob->Suspend();
-		}
-	}
-	Refresh();
+	ApplyToSelection(ID_JOB_PAUSE, L"pause", [](auto job) { return job->Suspend(); });
 	return 0;
 }
 
 LRESULT CView::OnResumeJob(WORD, WORD, HWND, BOOL&) {
-	auto count = m_List.GetSelectedCount();
-	if (count) {
-		int i = -1;
-		while ((i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0) {
-			auto& item = m_Jobs[i];
-			item->spJob->Resume();
-		}
-	}
-	Refresh();
-
+	ApplyToSelection(ID_JOB_RESUME, L"resume", [](auto job) { return job->Resume(); });
 	return 0;
 }
 
@@ -378,6 +476,97 @@ LRESULT CView::OnEditCopy(WORD, WORD, HWND, BOOL&) const {
 	}
 	ClipboardHelper::CopyText(*this, text);
 
+	return 0;
+}
+
+LRESULT CView::OnCompleteJob(WORD, WORD, HWND, BOOL&) {
+	// Complete() makes the transferred files available under their final names and removes the job from BITS
+	for (int i = -1; (i = m_List.GetNextItem(i, LVIS_SELECTED)) >= 0; ) {
+		auto& item = m_Jobs[i];
+		if (!CanApply(ID_JOB_COMPLETE, item->State))
+			continue;
+		auto hr = item->spJob->Complete();
+		if (FAILED(hr)) {
+			ShowError(L"Failed to complete job \"" + item->DisplayName + L"\".", hr);
+			break;
+		}
+		if (hr == BG_S_PARTIAL_COMPLETE || hr == BG_S_UNABLE_TO_DELETE_FILES)
+			AtlMessageBox(*this, (PCWSTR)(L"Job \"" + item->DisplayName + L"\" completed with a warning.\n\n" + ErrorText(hr)),
+				IDR_MAINFRAME, MB_ICONWARNING);
+	}
+	Refresh();
+	UpdateUI();
+	return 0;
+}
+
+LRESULT CView::OnDeleteCompletedJobs(WORD, WORD, HWND, BOOL&) {
+	// acknowledged and canceled jobs are gone from BITS; the list only keeps them until removed here
+	auto done = [](auto const& job) { return IsFinalState(job->State); };
+	for (auto& job : m_Jobs)
+		if (done(job))
+			m_JobsMap.erase(job->Id);
+	std::erase_if(m_Jobs, done);
+
+	// selection is by index, which no longer matches
+	m_List.SetItemState(-1, 0, LVIS_SELECTED | LVIS_FOCUSED);
+	m_List.SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
+	UpdateUI();
+	return 0;
+}
+
+LRESULT CView::OnNewJob(WORD, WORD, HWND, BOOL&) {
+	if (!m_spMgr)
+		return 0;
+
+	CNewJobDlg dlg;
+	if (dlg.DoModal() != IDOK)
+		return 0;
+
+	GUID id;
+	CComPtr<IBackgroundCopyJob> spJob;
+	auto hr = m_spMgr->CreateJob(dlg.GetDisplayName(), dlg.GetType(), &id, &spJob);
+	if (FAILED(hr)) {
+		ShowError(L"Failed to create job.", hr);
+		return 0;
+	}
+
+	hr = spJob->AddFile(dlg.GetUrl(), dlg.GetLocalPath());
+	if (FAILED(hr)) {
+		// don't leave an empty job behind
+		spJob->Cancel();
+		ShowError(L"Failed to add the file to the job.", hr);
+		return 0;
+	}
+	spJob->SetPriority(dlg.GetPriority());
+
+	if (dlg.StartNow()) {
+		hr = spJob->Resume();
+		if (FAILED(hr))
+			ShowError(L"The job was created but failed to start.", hr);
+	}
+
+	if (m_JobsMap.find(static_cast<Guid const&>(id)) == m_JobsMap.end())
+		AddBitsJob(spJob);
+	m_List.SetItemCountEx((int)m_Jobs.size(), LVSICF_NOSCROLL);
+
+	// select the new job
+	m_List.SetItemState(-1, 0, LVIS_SELECTED);
+	auto it = std::find_if(m_Jobs.begin(), m_Jobs.end(), [&](auto const& j) { return ::IsEqualGUID(j->Id, id); });
+	if (it != m_Jobs.end()) {
+		int index = (int)(it - m_Jobs.begin());
+		m_List.SetItemState(index, LVIS_SELECTED | LVIS_FOCUSED, LVIS_SELECTED | LVIS_FOCUSED);
+		m_List.EnsureVisible(index, FALSE);
+	}
+	return 0;
+}
+
+LRESULT CView::OnSaveAs(WORD, WORD, HWND, BOOL&) {
+	auto path = ListViewHelper::PromptForCsvFile(*this, L"BitsJobs.csv");
+	if (path.IsEmpty())
+		return 0;
+
+	if (!ListViewHelper::SaveAsCsv(m_List, path))
+		ShowError(L"Failed to save the job list.", HRESULT_FROM_WIN32(::GetLastError()));
 	return 0;
 }
 

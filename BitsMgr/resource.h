@@ -23,6 +23,7 @@
 #define IDD_JOBPROPS                    217
 #define IDI_COPY                        220
 #define IDI_PIN                         221
+#define IDD_NEWJOB                      222
 #define IDC_DISPLAYNAME                 1000
 #define IDC_DESC                        1001
 #define IDC_GUID                        1004
@@ -35,6 +36,10 @@
 #define IDC_PARAMS                      1011
 #define IDC_BUTTON1                     1014
 #define IDC_BROWSE                      1014
+#define IDC_TYPE                        1015
+#define IDC_URL                         1016
+#define IDC_LOCALPATH                   1017
+#define IDC_START                       1018
 #define ID_JOB_CANCEL                   32776
 #define ID_JOB_PAUSE                    32777
 #define ID_JOB_RESUME                   32778
@@ -44,14 +49,15 @@
 #define ID_OPTIONS_ALWAYSONTOP          32782
 #define ID_EDIT_COPYURL                 32783
 #define ID_OPTIONS_DARKMODE             32784
+#define ID_JOB_COMPLETE                 32785
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        222
-#define _APS_NEXT_COMMAND_VALUE         32785
-#define _APS_NEXT_CONTROL_VALUE         1015
+#define _APS_NEXT_RESOURCE_VALUE        223
+#define _APS_NEXT_COMMAND_VALUE         32786
+#define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

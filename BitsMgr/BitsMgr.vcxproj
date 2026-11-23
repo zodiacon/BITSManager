@@ -333,6 +333,7 @@
     <ClCompile Include="BitsMgr.cpp" />
     <ClCompile Include="JobPropertiesDlg.cpp" />
     <ClCompile Include="MainFrm.cpp" />
+    <ClCompile Include="NewJobDlg.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -350,6 +351,7 @@
     <ClInclude Include="IMainFrame.h" />
     <ClInclude Include="JobPropertiesDlg.h" />
     <ClInclude Include="MainFrm.h" />
+    <ClInclude Include="NewJobDlg.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="SecurityHelper.h" />

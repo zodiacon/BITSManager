@@ -9,15 +9,60 @@
 CJobPropertiesDlg::CJobPropertiesDlg(IBackgroundCopyJob* pJob) : m_pJob(pJob) {
 }
 
-void CJobPropertiesDlg::InitJob() {
-    PWSTR name;
-    m_pJob->GetDisplayName(&name);
-    SetDlgItemText(IDC_DISPLAYNAME, name);
-    ::CoTaskMemFree(name);
+namespace {
+	//
+	// BITS requires the notify parameters to start with the program itself (it becomes argv[0]).
+	// The dialog shows and edits only the arguments after it.
+	//
+	CString StripProgram(CString params, CString const& program) {
+		params.TrimLeft();
+		CString first;
+		int end;
+		if (params.Left(1) == L"\"") {
+			end = params.Find(L'"', 1);
+			first = end < 0 ? params.Mid(1) : params.Mid(1, end - 1);
+			end = end < 0 ? params.GetLength() : end + 1;
+		}
+		else {
+			end = params.Find(L' ');
+			if (end < 0)
+				end = params.GetLength();
+			first = params.Left(end);
+		}
+		if (first.CompareNoCase(program) == 0)
+			params = params.Mid(end);
+		return params.Trim();
+	}
 
-    m_pJob->GetDescription(&name);
-    SetDlgItemText(IDC_DESC, name);
-    ::CoTaskMemFree(name);
+	CString FormatSize(UINT64 bytes) {
+		CString text;
+		if (bytes == BG_SIZE_UNKNOWN)
+			text = L"?";
+		else if (bytes < (1 << 10))
+			text.Format(L"%llu B", bytes);
+		else if (bytes < (1 << 20))
+			text.Format(L"%llu KB", bytes >> 10);
+		else
+			text.Format(L"%llu MB", bytes >> 20);
+		return text;
+	}
+}
+
+void CJobPropertiesDlg::InitJob() {
+    PWSTR name = nullptr;
+    if (SUCCEEDED(m_pJob->GetDisplayName(&name))) {
+        m_Name = name;
+        ::CoTaskMemFree(name);
+    }
+    SetDlgItemText(IDC_DISPLAYNAME, m_Name);
+
+    if (SUCCEEDED(m_pJob->GetDescription(&name))) {
+        m_Description = name;
+        ::CoTaskMemFree(name);
+    }
+    SetDlgItemText(IDC_DESC, m_Description);
+    // read back as the (multiline) edit control has it, so an unchanged description compares equal
+    GetDlgItemText(IDC_DESC, m_Description);
 
     GUID id;
     m_pJob->GetId(&id);
@@ -27,16 +72,16 @@ void CJobPropertiesDlg::InitJob() {
 
     CComQIPtr<IBackgroundCopyJob2> spJob2(m_pJob);
     if (spJob2) {
-        PWSTR program, params;
+        PWSTR program = nullptr, params = nullptr;
         if (SUCCEEDED(spJob2->GetNotifyCmdLine(&program, &params))) {
-            if (program) {
-                SetDlgItemText(IDC_PROGRAM, program);
-                ::CoTaskMemFree(program);
-            }
-            if (params) {
-                SetDlgItemText(IDC_PARAMS, CString(params).Trim());
-                ::CoTaskMemFree(params);
-            }
+            m_Program = program;
+            m_Program.Trim();
+            if (params)
+                m_Params = StripProgram(params, m_Program);
+            SetDlgItemText(IDC_PROGRAM, m_Program);
+            SetDlgItemText(IDC_PARAMS, m_Params);
+            ::CoTaskMemFree(program);
+            ::CoTaskMemFree(params);
         }
     }
     else {
@@ -44,12 +89,13 @@ void CJobPropertiesDlg::InitJob() {
         GetDlgItem(IDC_PROGRAM).EnableWindow(FALSE);
     }
 
-    BG_JOB_STATE state;
+    BG_JOB_STATE state = BG_JOB_STATE_ERROR;
     m_pJob->GetState(&state);
     SetDlgItemText(IDC_STATE, CView::JobStateToString(state));
-    BG_JOB_PRIORITY priority;
-    m_pJob->GetPriority(&priority);
-    m_Priority.SelectString(-1, CView::JobPriorityToString(priority));
+    m_pJob->GetPriority(&m_OrgPriority);
+    for (int i = 0; i < m_Priority.GetCount(); i++)
+        if (m_Priority.GetItemData(i) == (DWORD_PTR)m_OrgPriority)
+            m_Priority.SetCurSel(i);
 
     CComPtr<IEnumBackgroundCopyFiles> spFiles;
     m_pJob->EnumFiles(&spFiles);
@@ -60,18 +106,21 @@ void CJobPropertiesDlg::InitJob() {
             CComPtr<IBackgroundCopyFile> spFile;
             spFiles->Next(1, &spFile, nullptr);
             if (spFile) {
-                spFile->GetRemoteName(&name);
-                int n = m_List.InsertItem(m_List.GetItemCount(), name);
-                ::CoTaskMemFree(name);
-                spFile->GetLocalName(&name);
-                m_List.SetItemText(n, 1, name);
-                ::CoTaskMemFree(name);
+                CString remote, local;
+                if (SUCCEEDED(spFile->GetRemoteName(&name))) {
+                    remote = name;
+                    ::CoTaskMemFree(name);
+                }
+                if (SUCCEEDED(spFile->GetLocalName(&name))) {
+                    local = name;
+                    ::CoTaskMemFree(name);
+                }
+                int n = m_List.InsertItem(m_List.GetItemCount(), remote);
+                m_List.SetItemText(n, 1, local);
                 if (state != BG_JOB_STATE_ERROR) {
                     BG_FILE_PROGRESS progress;
                     spFile->GetProgress(&progress);
-                    CString text;
-                    text.Format(L"%llu K / %llu B", progress.BytesTransferred >> 10, progress.BytesTotal);
-                    m_List.SetItemText(n, 2, text);
+                    m_List.SetItemText(n, 2, FormatSize(progress.BytesTransferred) + L" / " + FormatSize(progress.BytesTotal));
                 }
             }
         }
@@ -105,24 +154,59 @@ LRESULT CJobPropertiesDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&) {
 }
 
 LRESULT CJobPropertiesDlg::OnCloseCmd(WORD, WORD id, HWND, BOOL&) {
-    if (id == IDOK) {
-        // update job
-        CString text;
-        GetDlgItemText(IDC_DISPLAYNAME, text);
-        m_pJob->SetDisplayName(text);
-        GetDlgItemText(IDC_DESC, text);
-        m_pJob->SetDescription(text);
-        m_pJob->SetPriority((BG_JOB_PRIORITY)m_Priority.GetItemData(m_Priority.GetCurSel()));
-        CComQIPtr<IBackgroundCopyJob2> spJob2(m_pJob);
-        if (spJob2) {
-            GetDlgItemText(IDC_PROGRAM, text);
-            CString params;
-            GetDlgItemText(IDC_PARAMS, params);
-            spJob2->SetNotifyCmdLine(text, L" " + params);
-        }
-    }
+    if (id == IDOK && !SaveChanges())
+        return 0;   // the error was shown; keep the dialog open
+
     EndDialog(id);
     return 0;
+}
+
+bool CJobPropertiesDlg::SaveChanges() {
+    // only what changed is set, so an unchanged dialog never fails (e.g. on a job that's no longer in BITS
+    // or that belongs to another user)
+    auto check = [&](HRESULT hr, PCWSTR what) {
+        if (FAILED(hr))
+            AtlMessageBox(m_hWnd, (PCWSTR)(CString(L"Failed to set the ") + what + L".\n\n" + CView::ErrorText(hr)),
+                IDR_MAINFRAME, MB_ICONERROR);
+        return SUCCEEDED(hr);
+    };
+
+    CString text;
+    GetDlgItemText(IDC_DISPLAYNAME, text);
+    if (text != m_Name && !check(m_pJob->SetDisplayName(text), L"display name"))
+        return false;
+    GetDlgItemText(IDC_DESC, text);
+    if (text != m_Description && !check(m_pJob->SetDescription(text), L"description"))
+        return false;
+    auto priority = (BG_JOB_PRIORITY)m_Priority.GetItemData(m_Priority.GetCurSel());
+    if (priority != m_OrgPriority && !check(m_pJob->SetPriority(priority), L"priority"))
+        return false;
+
+    CComQIPtr<IBackgroundCopyJob2> spJob2(m_pJob);
+    if (spJob2) {
+        CString program, params;
+        GetDlgItemText(IDC_PROGRAM, program);
+        GetDlgItemText(IDC_PARAMS, params);
+        program.Trim();
+        params.Trim();
+        if (program != m_Program || params != m_Params) {
+            HRESULT hr;
+            if (program.IsEmpty()) {
+                // null program removes the command line
+                hr = spJob2->SetNotifyCmdLine(nullptr, nullptr);
+            }
+            else {
+                // the parameters must begin with the program
+                CString cmdline = L"\"" + program + L"\"";
+                if (!params.IsEmpty())
+                    cmdline += L" " + params;
+                hr = spJob2->SetNotifyCmdLine(program, cmdline);
+            }
+            if (!check(hr, L"notify command line"))
+                return false;
+        }
+    }
+    return true;
 }
 
 LRESULT CJobPropertiesDlg::OnBrowse(WORD, WORD id, HWND, BOOL&) {
@@ -143,11 +227,10 @@ LRESULT CJobPropertiesDlg::OnRightClick(int, LPNMHDR hdr, BOOL&) {
         ::GetCursorPos(&pt);
         auto popup = menu.GetSubMenu(1);
         WTLHelper::InitMenu(popup, MenuItemData{ ID_EDIT_COPY, IDI_COPY });
-        auto cmd = (UINT)popup.TrackPopupMenu(0, pt.x, pt.y, m_hWnd);
-        if (cmd) {
-            LRESULT result;
-            return ProcessWindowMessage(m_hWnd, WM_COMMAND, cmd, 0, result, 1);
-        }
+        // TPM_RETURNCMD: the command comes back here rather than as a posted WM_COMMAND
+        auto cmd = (UINT)popup.TrackPopupMenu(TPM_RETURNCMD, pt.x, pt.y, m_hWnd);
+        if (cmd)
+            SendMessage(WM_COMMAND, cmd);
     }
     return 0;
 }

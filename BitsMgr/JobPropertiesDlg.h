@@ -32,6 +32,8 @@ public:
 
 private:
 	void InitJob();
+	// sets what was changed; false (after showing the error) if BITS refused something
+	bool SaveChanges();
 
 	LRESULT OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/);
 	LRESULT OnCloseCmd(WORD /*wNotifyCode*/, WORD id, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
@@ -43,5 +45,8 @@ private:
 	CListViewCtrl m_List;
 	CComboBox m_Priority;
 	IBackgroundCopyJob* m_pJob;
+	// the values as shown when the dialog opened
+	CString m_Name, m_Description, m_Program, m_Params;
+	BG_JOB_PRIORITY m_OrgPriority{ BG_JOB_PRIORITY_NORMAL };
 };
 
