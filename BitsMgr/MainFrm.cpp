@@ -68,7 +68,10 @@ LRESULT CMainFrame::OnCreate(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/
 	InitToolBar();
 
 	// the panes' widths come from their string resources (templates of the longest text)
-	m_hWndStatusBar = m_StatusBar.Create(m_hWnd);
+	// created as a plain status bar and subclassed: CMultiPaneStatusBarCtrl::Create would register its own window class
+	// (WTL_MultiPaneStatusBar), which dark mode doesn't recognize as a status bar, so it stayed light
+	CreateSimpleStatusBar();
+	m_StatusBar.SubclassWindow(m_hWndStatusBar);
 	m_StatusBar.SetPanes(const_cast<int*>(s_Panes), _countof(s_Panes), false);
 	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
 
@@ -285,10 +288,20 @@ LRESULT CMainFrame::OnDpiChanged(UINT, WPARAM, LPARAM lParam, BOOL&) {
 	UpdateToolBar();
 	InitMenu(GetMenu());
 	DrawMenuBar();
-	// the panes' widths for the status bar's font at the new DPI
-	m_StatusBar.SetPanes(const_cast<int*>(s_Panes), _countof(s_Panes), false);
-	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
 	m_view.OnDpiChanged();
 	UpdateLayout();
+	// the status bar gets its font for the new DPI (dark mode draws it with its own) from WM_DPICHANGED_AFTERPARENT,
+	// which comes after this returns: its panes are laid out again and repainted after that
+	PostMessage(WM_UPDATE_STATUS_BAR_DPI);
+	return 0;
+}
+
+LRESULT CMainFrame::OnUpdateStatusBarDpi(UINT, WPARAM, LPARAM, BOOL&) {
+	// the panes' widths for the status bar's font at the new DPI
+	m_StatusBar.SetPanes(const_cast<int*>(s_Panes), _countof(s_Panes), false);
+	// SetPanes leaves the default pane at a huge width for the next WM_SIZE to fix; there's none coming here
+	m_StatusBar.UpdatePanesLayout();
+	SetStatusText(IDS_PANE_SCOPE, m_Elevated ? L"All users' jobs" : L"Current user's jobs (not elevated)");
+	m_StatusBar.Invalidate();
 	return 0;
 }
